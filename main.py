@@ -10,11 +10,13 @@ class GraphVisualizationApp(QMainWindow):
         self.setWindowTitle("Graph Visualization Tool")
         self.setGeometry(100, 100, 800, 600)
 
-        # Create main menu
+
         menubar = self.menuBar()
+        menubar.setStyleSheet("background-color: #444444; color: white;")
 
         # Create 'Examples' menu
         examples_menu = QMenu("Examples", self)
+        examples_menu.setStyleSheet("background-color: #444444; color: white;")
         menubar.addMenu(examples_menu)
 
         # Add 'Built in examples' action
@@ -47,16 +49,19 @@ class GraphVisualizationApp(QMainWindow):
         built_in_label = QLabel("Built in examples")
         built_in_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         built_in_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        built_in_label.setStyleSheet("color: white; background-color: #007ACC; padding: 10px; border-radius: 5px;")
 
         create_label = QLabel("Create example")
         create_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         create_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        create_label.setStyleSheet("color: white; background-color: #FF6600; padding: 10px; border-radius: 5px;")
 
         # Add labels to layout
         layout.addWidget(built_in_label)
         layout.addWidget(create_label)
 
         central_widget.setLayout(layout)
+        central_widget.setStyleSheet("background-color: #2D2D2D;")
 
     def show_built_in_examples(self):
         # Placeholder function for 'Built in examples' action
