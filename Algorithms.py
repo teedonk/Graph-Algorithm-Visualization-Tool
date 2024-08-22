@@ -135,18 +135,34 @@ def visualize_path(G, pos, path, algorithm_name):
     edge_labels = nx.get_edge_attributes(G, 'weight')
     nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
 
-    path_edges = list(zip(path, path[1:]))
-    nx.draw_networkx_edges(G, pos, edgelist=path_edges, edge_color='r', width=2)
+    if path:
+        path_edges = list(zip(path, path[1:]))
+        nx.draw_networkx_edges(G, pos, edgelist=path_edges, edge_color='r', width=2)
 
-    plt.title(f"{algorithm_name} - Path from A to F", fontsize=20)
+    start_node = path[0] if path else ''
+    goal_node = path[-1] if path else ''
+    plt.title(f"{algorithm_name} - Path from {start_node} to {goal_node}", fontsize=20)
     plt.axis('off')
     plt.show()
-
 
 def generate_graph(num_nodes):
     nodes = [chr(i) for i in range(65, 65 + num_nodes)]
     G = nx.Graph()
-    for i in range(len(nodes) - 1):
-        G.add_edge(nodes[i], nodes[i + 1], weight=random.randint(1, 10))
-    pos = nx.spring_layout(G)
+
+    # Add all nodes to the graph
+    G.add_nodes_from(nodes)
+
+    # Ensure the graph is connected
+    for i in range(1, len(nodes)):
+        G.add_edge(nodes[i - 1], nodes[i], weight=random.randint(1, 10))
+
+    # Add random additional edges
+    for _ in range(num_nodes):
+        node1, node2 = random.sample(nodes, 2)
+        if node1 != node2 and not G.has_edge(node1, node2):
+            G.add_edge(node1, node2, weight=random.randint(1, 10))
+
+    # Position nodes for visualization
+    pos = nx.spring_layout(G, k=0.5, iterations=50)
+
     return G, pos

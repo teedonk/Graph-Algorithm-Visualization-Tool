@@ -1,31 +1,18 @@
 import sys
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QMenuBar, QMenu,
-                             QPushButton, QHBoxLayout, QComboBox, QToolTip, QStackedWidget)
+                             QPushButton, QSpinBox, QHBoxLayout, QComboBox, QToolTip, QStackedWidget)
 from PyQt6.QtGui import QAction, QFont, QIcon
 from PyQt6.QtCore import Qt
 from Algorithms import *
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+import matplotlib.pyplot as plt
+
 class GraphVisualizationApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Graph Visualization Tool")
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 1200, 800)
         self.init_ui()
-        self.visualization_page = VisualizationPage(self)
-        self.central_widget.addWidget(self.visualization_page)
-
-    # New method to trigger visualization
-    def run_algorithm_visualization(self, num_nodes, start_node):
-        # Generate random graph or example graph
-        graph, pos = generate_graph(num_nodes)
-
-        # Run selected algorithm
-        path = bfs(graph, start_node, 'F')  # Assuming BFS is selected
-
-        # Visualize path
-        visualize_path(graph, pos, path, "BFS")
-
-    def show_visualization_page(self):
-        self.central_widget.setCurrentWidget(self.visualization_page)
 
     def init_ui(self):
         self.central_widget = QStackedWidget()
@@ -35,13 +22,29 @@ class GraphVisualizationApp(QMainWindow):
         self.built_in_examples_page = BuiltInExamplesWidget(self)
         self.create_example_page = CreateExampleWidget(self)
         self.algorithm_selection_page = AlgorithmSelectionWidget(self)
+        self.visualization_page = VisualizationPage(self)
 
         self.central_widget.addWidget(self.home_page)
         self.central_widget.addWidget(self.built_in_examples_page)
         self.central_widget.addWidget(self.create_example_page)
         self.central_widget.addWidget(self.algorithm_selection_page)
+        self.central_widget.addWidget(self.visualization_page)
 
         self.create_menu()
+
+    def run_algorithm_visualization(self, num_nodes, start_node, algorithm):
+        graph, pos = generate_graph(num_nodes)
+
+        if algorithm == "Breadth-First Search (BFS)":
+            path = bfs(graph, start_node, 'F')
+        elif algorithm == "Depth-First Search (DFS)":
+            path = dfs(graph, start_node, 'F')
+        elif algorithm == "Dijkstra's Algorithm":
+            path = dijkstra(graph, start_node, 'F')
+        else:
+            path = []
+
+        self.visualization_page.visualize_path(graph, pos, path, algorithm)
 
     def create_menu(self):
         menubar = self.menuBar()
@@ -275,27 +278,17 @@ class AlgorithmSelectionWidget(QWidget):
         traversal_layout.addWidget(self.traversal_combo)
 
         traversal_button.clicked.connect(self.toggle_traversal_options)
-        traversal_button.clicked.connect(self.parent.show_visualization_page)
         layout.addLayout(traversal_layout)
 
-        # Pathfinding Algorithm section
-        pathfinding_layout = QVBoxLayout()
-        pathfinding_button = QPushButton("Pathfinding Algorithm")
-        pathfinding_button.setStyleSheet(button_style)
-        pathfinding_layout.addWidget(pathfinding_button)
-
-        self.pathfinding_combo = QComboBox()
-        self.pathfinding_combo.addItems(["Dijkstra's Algorithm", "A* Algorithm"])
-        self.pathfinding_combo.setStyleSheet(combo_style)
-        self.pathfinding_combo.hide()
-        pathfinding_layout.addWidget(self.pathfinding_combo)
-
-        pathfinding_button.clicked.connect(self.toggle_pathfinding_options)
-        layout.addLayout(pathfinding_layout)
+        # Visualization button
+        visualize_button = QPushButton("Visualize")
+        visualize_button.setStyleSheet(button_style)
+        visualize_button.clicked.connect(self.show_visualization)
+        layout.addWidget(visualize_button)
 
         back_button = QPushButton("Back")
         back_button.clicked.connect(self.parent.go_back)
-        back_button.setStyleSheet(button_style.replace("#4CAF50", "#FF5733"))  # Different color for back button
+        back_button.setStyleSheet(button_style.replace("#4CAF50", "#FF5733"))
         layout.addWidget(back_button)
 
         self.setLayout(layout)
@@ -303,11 +296,11 @@ class AlgorithmSelectionWidget(QWidget):
 
     def toggle_traversal_options(self):
         self.traversal_combo.setVisible(not self.traversal_combo.isVisible())
-        self.pathfinding_combo.hide()
 
-    def toggle_pathfinding_options(self):
-        self.pathfinding_combo.setVisible(not self.pathfinding_combo.isVisible())
-        self.traversal_combo.hide()
+    def show_visualization(self):
+        selected_algorithm = self.traversal_combo.currentText()
+        self.parent.visualization_page.set_algorithm(selected_algorithm)
+        self.parent.central_widget.setCurrentWidget(self.parent.visualization_page)
 
 class CreateExampleWidget(QWidget):
     def __init__(self, parent):
@@ -357,55 +350,67 @@ class VisualizationPage(QWidget):
     def __init__(self, parent):
         super().__init__()
         self.parent = parent
+        self.algorithm = ""
         self.init_ui()
 
     def init_ui(self):
         layout = QHBoxLayout()
 
-        # Sidebar for options
+        # Sidebar for options (1/6 of the screen)
+        options_widget = QWidget()
         options_layout = QVBoxLayout()
+        options_widget.setLayout(options_layout)
+        options_widget.setFixedWidth(200)  # Adjust this value as needed
+
         title = QLabel("Graph Visualization")
-        title.setFont(QFont("Arial", 20, QFont.Weight.Bold))
+        title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
         options_layout.addWidget(title)
 
-        # Dropdown for number of nodes
-        self.node_count_combo = QComboBox()
-        self.node_count_combo.addItems([str(i) for i in range(2, 11)])
-        options_layout.addWidget(QLabel("Select Number of Nodes"))
-        options_layout.addWidget(self.node_count_combo)
+        self.node_count_spin = QSpinBox()
+        self.node_count_spin.setRange(2, 10)
+        self.node_count_spin.setValue(5)
+        options_layout.addWidget(QLabel("Number of Nodes:"))
+        options_layout.addWidget(self.node_count_spin)
 
-        # Dropdown for start node
         self.start_node_combo = QComboBox()
         self.start_node_combo.addItems(['A', 'B', 'C', 'D', 'E', 'F'])
-        options_layout.addWidget(QLabel("Select Start Node"))
+        options_layout.addWidget(QLabel("Start Node:"))
         options_layout.addWidget(self.start_node_combo)
 
-        # Button to visualize
         visualize_button = QPushButton("Visualize")
         visualize_button.clicked.connect(self.visualize_graph)
         options_layout.addWidget(visualize_button)
 
-        layout.addLayout(options_layout)
+        options_layout.addStretch()
 
-        # Graph visualization space
-        self.graph_space = QLabel("Graph will be visualized here")
-        layout.addWidget(self.graph_space)
+        layout.addWidget(options_widget)
+
+        # Graph visualization space (5/6 of the screen)
+        self.figure = plt.figure(figsize=(10, 8))
+        self.canvas = FigureCanvas(self.figure)
+        layout.addWidget(self.canvas, stretch=5)
 
         self.setLayout(layout)
 
+    def set_algorithm(self, algorithm):
+        self.algorithm = algorithm
+
     def visualize_graph(self):
-        # Fetch options
-        num_nodes = int(self.node_count_combo.currentText())
+        num_nodes = self.node_count_spin.value()
         start_node = self.start_node_combo.currentText()
+        self.parent.run_algorithm_visualization(num_nodes, start_node, self.algorithm)
 
-        # Call graph generation and visualization functions
-        self.parent.run_algorithm_visualization(num_nodes, start_node)
-
+    def visualize_path(self, graph, pos, path, algorithm):
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
+        nx.draw(graph, pos, with_labels=True, node_color='lightblue', node_size=500, font_size=16, font_weight='bold', ax=ax)
+        nx.draw_networkx_edges(graph, pos, edgelist=list(zip(path, path[1:])), edge_color='r', width=2, ax=ax)
+        ax.set_title(f"{algorithm} - Path from {path[0]} to {path[-1]}")
+        self.canvas.draw()
 
 def main():
     app = QApplication(sys.argv)
 
-    # Set global tooltip style
     app.setStyleSheet("""
         QToolTip {
             background-color: #F0F0F0;
