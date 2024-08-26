@@ -15,15 +15,6 @@ G.add_weighted_edges_from(edges)
 # Position nodes for consistent layout
 pos = nx.spring_layout(G)
 
-# Visualize the graph
-plt.figure(figsize=(12, 8))
-nx.draw(G, pos, with_labels=True, node_color='lightblue', node_size=500, font_size=16, font_weight='bold')
-edge_labels = nx.get_edge_attributes(G, 'weight')
-nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
-plt.title("Sample Graph", fontsize=20)
-plt.axis('off')
-plt.show()
-
 
 # Breadth-First Search
 def bfs(graph, start, goal):
@@ -128,41 +119,68 @@ def a_star(graph, start, goal):
     return None
 
 
+
+# def generate_graph(num_nodes):
+#     nodes = [chr(i) for i in range(65, 65 + num_nodes)]
+#     graph = {}
+#
+#     # Add all nodes to the graph
+#     for node in nodes:
+#         graph[node] = {}
+#
+#     # Ensure the graph is connected
+#     for i in range(1, len(nodes)):
+#         weight = random.randint(1, 10)
+#         graph[nodes[i-1]][nodes[i]] = {'weight': weight}
+#         graph[nodes[i]][nodes[i-1]] = {'weight': weight}
+#
+#     # Add random additional edges
+#     for _ in range(num_nodes):
+#         node1, node2 = random.sample(nodes, 2)
+#         if node1 != node2 and node2 not in graph[node1]:
+#             weight = random.randint(1, 10)
+#             graph[node1][node2] = {'weight': weight}
+#             graph[node2][node1] = {'weight': weight}
+#
+#     return graph
+
+
 # Function to visualize path
-def visualize_path(G, pos, path, algorithm_name):
-    plt.figure(figsize=(12, 8))
-    nx.draw(G, pos, with_labels=True, node_color='lightblue', node_size=500, font_size=16, font_weight='bold')
-    edge_labels = nx.get_edge_attributes(G, 'weight')
-    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
 
-    if path:
-        path_edges = list(zip(path, path[1:]))
-        nx.draw_networkx_edges(G, pos, edgelist=path_edges, edge_color='r', width=2)
+# def visualize_path(G, pos, path, algorithm_name):
+#     plt.figure(figsize=(12, 8))
+#     nx.draw(G, pos, with_labels=True, node_color='lightblue', node_size=500, font_size=16, font_weight='bold')
+#     edge_labels = nx.get_edge_attributes(G, 'weight')
+#     nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
+#
+#     if path:
+#         path_edges = list(zip(path, path[1:]))
+#         nx.draw_networkx_edges(G, pos, edgelist=path_edges, edge_color='r', width=2)
+#
+#     start_node = path[0] if path else ''
+#     goal_node = path[-1] if path else ''
+#     plt.title(f"{algorithm_name} - Path from {start_node} to {goal_node}", fontsize=20)
+#     plt.axis('off')
+#     plt.show()
 
-    start_node = path[0] if path else ''
-    goal_node = path[-1] if path else ''
-    plt.title(f"{algorithm_name} - Path from {start_node} to {goal_node}", fontsize=20)
-    plt.axis('off')
-    plt.show()
-
-def generate_graph(num_nodes):
-    nodes = [chr(i) for i in range(65, 65 + num_nodes)]
-    G = nx.Graph()
-
-    # Add all nodes to the graph
-    G.add_nodes_from(nodes)
-
-    # Ensure the graph is connected
-    for i in range(1, len(nodes)):
-        G.add_edge(nodes[i - 1], nodes[i], weight=random.randint(1, 10))
-
-    # Add random additional edges
-    for _ in range(num_nodes):
-        node1, node2 = random.sample(nodes, 2)
-        if node1 != node2 and not G.has_edge(node1, node2):
-            G.add_edge(node1, node2, weight=random.randint(1, 10))
-
-    # Position nodes for visualization
-    pos = nx.spring_layout(G, k=0.5, iterations=50)
-
-    return G, pos
+# def generate_graph(num_nodes):
+#     nodes = [chr(i) for i in range(65, 65 + num_nodes)]
+#     G = nx.Graph()
+#
+#     # Add all nodes to the graph
+#     G.add_nodes_from(nodes)
+#
+#     # Ensure the graph is connected
+#     for i in range(1, len(nodes)):
+#         G.add_edge(nodes[i - 1], nodes[i], weight=random.randint(1, 10))
+#
+#     # Add random additional edges
+#     for _ in range(num_nodes):
+#         node1, node2 = random.sample(nodes, 2)
+#         if node1 != node2 and not G.has_edge(node1, node2):
+#             G.add_edge(node1, node2, weight=random.randint(1, 10))
+#
+#     # Position nodes for visualization
+#     pos = nx.spring_layout(G, k=0.5, iterations=50)
+#
+#     return G, pos
