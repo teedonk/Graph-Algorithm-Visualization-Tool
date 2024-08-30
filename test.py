@@ -1,21 +1,17 @@
 import sys
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QMenuBar, QMenu,
-                             QPushButton, QMessageBox, QSpinBox, QHBoxLayout, QComboBox, QToolTip, QStackedWidget)
+                             QPushButton, QStyle, QSlider, QMessageBox, QSpinBox, QHBoxLayout, QComboBox, QToolTip, QStackedWidget)
 from PyQt6.QtGui import QAction, QFont, QIcon
 from PyQt6.QtCore import Qt, QUrl, QByteArray
 from Algorithms import *
 from PyQt6.QtMultimedia import QMediaPlayer
 from PyQt6.QtMultimediaWidgets import QVideoWidget
-import graphviz
 import tempfile
 import os
 from manim import *
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 import networkx as nx
 import shutil
-import matplotlib.pyplot as plt
-from io import BytesIO
-import base64
 
 class GraphVisualizationApp(QMainWindow):
     def __init__(self):
@@ -433,47 +429,93 @@ class VisualizationPage(QWidget):
         self.init_ui()
 
     def init_ui(self):
-        layout = QHBoxLayout()
+        main_layout = QHBoxLayout()
 
-        # Sidebar for options (1/6 of the screen)
-        options_widget = QWidget()
-        options_layout = QVBoxLayout()
-        options_widget.setLayout(options_layout)
-        options_widget.setFixedWidth(200)  # Adjust this value as needed
+        # Left panel (1/6 of the screen)
+        left_panel = QWidget()
+        left_layout = QVBoxLayout(left_panel)
+        left_panel.setFixedWidth(self.width() // 6)
 
         title = QLabel("Graph Visualization")
         title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
-        options_layout.addWidget(title)
+        left_layout.addWidget(title)
 
         self.node_count_spin = QSpinBox()
         self.node_count_spin.setRange(2, 10)
         self.node_count_spin.setValue(5)
-        options_layout.addWidget(QLabel("Number of Nodes:"))
-        options_layout.addWidget(self.node_count_spin)
+        left_layout.addWidget(QLabel("Number of Nodes:"))
+        left_layout.addWidget(self.node_count_spin)
 
         self.start_node_combo = QComboBox()
-        options_layout.addWidget(QLabel("Start Node:"))
-        options_layout.addWidget(self.start_node_combo)
+        left_layout.addWidget(QLabel("Start Node:"))
+        left_layout.addWidget(self.start_node_combo)
 
         self.node_count_spin.valueChanged.connect(self.update_start_node_options)
 
         visualize_button = QPushButton("Visualize")
         visualize_button.clicked.connect(self.visualize_graph)
-        options_layout.addWidget(visualize_button)
+        left_layout.addWidget(visualize_button)
 
-        options_layout.addStretch()
+        left_layout.addStretch()
 
-        layout.addWidget(options_widget)
+        main_layout.addWidget(left_panel)
 
-        # Video player space (5/6 of the screen)
+        # Right panel (5/6 of the screen)
+        right_panel = QWidget()
+        right_layout = QVBoxLayout(right_panel)
+
+        # Video player
         self.video_widget = QVideoWidget()
         self.media_player = QMediaPlayer()
         self.media_player.setVideoOutput(self.video_widget)
-        layout.addWidget(self.video_widget, stretch=5)
+        right_layout.addWidget(self.video_widget)
 
-        self.setLayout(layout)
+        # Progress Slider
+        self.progress_slider = QSlider(Qt.Orientation.Horizontal)
+        self.progress_slider.setRange(0, 0)
+        self.progress_slider.sliderMoved.connect(self.set_position)
+        right_layout.addWidget(self.progress_slider)
 
+        # Playback controls
+        controls_layout = QHBoxLayout()
+        controls_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.play_button = QPushButton()
+        self.play_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
+        self.play_button.clicked.connect(self.play_pause)
+
+        self.stop_button = QPushButton()
+        self.stop_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaStop))
+        self.stop_button.clicked.connect(self.stop)
+
+        self.backward_button = QPushButton()
+        self.backward_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaSeekBackward))
+        self.backward_button.clicked.connect(self.backward)
+
+        self.forward_button = QPushButton()
+        self.forward_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaSeekForward))
+        self.forward_button.clicked.connect(self.forward)
+
+        self.replay_button = QPushButton()
+        self.replay_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload))
+        self.replay_button.clicked.connect(self.replay)
+
+        controls_layout.addWidget(self.backward_button)
+        controls_layout.addWidget(self.stop_button)
+        controls_layout.addWidget(self.play_button)
+        controls_layout.addWidget(self.forward_button)
+        controls_layout.addWidget(self.replay_button)
+
+        right_layout.addLayout(controls_layout)
+
+        main_layout.addWidget(right_panel, 5)  # 5/6 of the screen width
+
+        self.setLayout(main_layout)
         self.update_start_node_options(self.node_count_spin.value())
+
+        # Connect media player signals
+        self.media_player.durationChanged.connect(self.update_duration)
+        self.media_player.positionChanged.connect(self.update_position)
 
     def update_start_node_options(self, num_nodes):
         self.start_node_combo.clear()
@@ -513,7 +555,7 @@ class VisualizationPage(QWidget):
                 raise FileNotFoundError(f"Video not found at {video_path}")
 
             self.media_player.setSource(QUrl.fromLocalFile(video_path))
-            self.media_player.play()
+            self.play_pause()
 
             print(f"Video successfully loaded from {video_path}")
 
@@ -526,11 +568,45 @@ class VisualizationPage(QWidget):
             error_message.setWindowTitle("Visualization Error")
             error_message.exec()
 
+    def play_pause(self):
+        if self.media_player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+            self.media_player.pause()
+            self.play_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
+        else:
+            self.media_player.play()
+            self.play_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPause))
+
+    def stop(self):
+        self.media_player.stop()
+        self.play_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
+
+    def backward(self):
+        new_position = max(0, self.media_player.position() - 5000)  # Go back 5 seconds
+        self.media_player.setPosition(new_position)
+
+    def forward(self):
+        new_position = min(self.media_player.duration(), self.media_player.position() + 5000)  # Go forward 5 seconds
+        self.media_player.setPosition(new_position)
+
+    def replay(self):
+        self.media_player.setPosition(0)
+        self.media_player.play()
+        self.play_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPause))
+
+    def update_duration(self, duration):
+        self.progress_slider.setRange(0, duration)
+
+    def update_position(self, position):
+        if not self.progress_slider.isSliderDown():
+            self.progress_slider.setValue(position)
+
+    def set_position(self, position):
+        self.media_player.setPosition(position)
+
     def closeEvent(self, event):
         if self.temp_dir:
             shutil.rmtree(self.temp_dir, ignore_errors=True)
         super().closeEvent(event)
-
 def main():
     app = QApplication(sys.argv)
 
