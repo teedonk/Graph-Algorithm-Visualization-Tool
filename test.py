@@ -1,23 +1,24 @@
 import sys
+import random
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QMenuBar, QMenu,
                              QPushButton, QStyle, QSlider, QMessageBox, QSpinBox, QHBoxLayout, QComboBox, QToolTip, QStackedWidget)
-from PyQt6.QtGui import QAction, QFont, QIcon
+from PyQt6.QtGui import QAction, QFont, QIcon, QPixmap
 from PyQt6.QtCore import Qt, QUrl, QByteArray
-from Algorithms import *
 from PyQt6.QtMultimedia import QMediaPlayer
 from PyQt6.QtMultimediaWidgets import QVideoWidget
 import tempfile
 import os
 from manim import *
-from PyQt6.QtWebEngineWidgets import QWebEngineView
 import networkx as nx
 import shutil
+import matplotlib.pyplot as plt
+import traceback
 
 class GraphVisualizationApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Graph Visualization Tool")
-        self.setGeometry(100, 100, 1200, 800)
+        self.setGeometry(100, 100, 1440, 900)  # Adjust the width and height as needed
         self.init_ui()
 
     def init_ui(self):
@@ -38,37 +39,50 @@ class GraphVisualizationApp(QMainWindow):
 
         self.create_menu()
 
-    def run_algorithm_visualization(self, num_nodes, start_node, algorithm):
-        graph, path = self.generate_networkx_graph(num_nodes, start_node, algorithm)
-        self.visualization_page.visualize_path(graph, None, path, algorithm)
+    def run_algorithm_visualization(self, num_nodes, start_node, algorithm, graph_type):
+        try:
+            graph, path = self.generate_networkx_graph(num_nodes, start_node, algorithm, graph_type)
+            self.visualization_page.visualize_path(graph, None, path, algorithm)
+        except Exception as e:
+            print(f"Error in run_algorithm_visualization: {str(e)}")
+            traceback.print_exc()
+            self.show_error_message("Visualization Error", str(e))
 
-    def generate_networkx_graph(self, num_nodes, start_node, algorithm):
+    def generate_networkx_graph(self, num_nodes, start_node, algorithm, graph_type):
         G = nx.Graph()
-        G.add_nodes_from(range(1, num_nodes + 1))
+        G.add_nodes_from(range(num_nodes))
 
-        # Generate random edges
-        for i in range(1, num_nodes + 1):
-            for j in range(i + 1, num_nodes + 1):
-                if random.random() < 0.3:  # 30% chance of edge creation
-                    weight = random.randint(1, 10)
-                    G.add_edge(i, j, weight=weight)
+        def add_edge(i, j):
+            G.add_edge(i, j)
+
+        if graph_type == "Complete Graph":
+            for i in range(num_nodes):
+                for j in range(i + 1, num_nodes):
+                    add_edge(i, j)
+        elif graph_type == "Linear Graph":
+            for i in range(num_nodes - 1):
+                add_edge(i, i + 1)
+        elif graph_type == "Star Graph":
+            for i in range(1, num_nodes):
+                add_edge(0, i)
+        elif graph_type == "Tree Graph":
+            for i in range(1, num_nodes):
+                parent = random.randint(0, i - 1)
+                add_edge(parent, i)
 
         start_node = int(start_node)
-        end_node = num_nodes  # Set the last node as the goal
 
         if algorithm == "Breadth-First Search (BFS)":
-            path = nx.shortest_path(G, source=start_node, target=end_node)
+            path = list(nx.bfs_edges(G, source=start_node))
         elif algorithm == "Depth-First Search (DFS)":
-            path = list(nx.dfs_preorder_nodes(G, source=start_node))
-            if end_node not in path:
-                path.append(end_node)
+            path = list(nx.dfs_edges(G, source=start_node))
         elif algorithm == "Dijkstra's Algorithm":
-            path = nx.dijkstra_path(G, source=start_node, target=end_node)
+            path = nx.dijkstra_path(G, source=start_node, target=num_nodes - 1)
+            path = list(zip(path[:-1], path[1:]))
         else:
             path = []
 
         return G, path
-
 
     def create_menu(self):
         menubar = self.menuBar()
@@ -382,12 +396,15 @@ class GraphVisualizationScene(Scene):
         vertices = list(self.graph.nodes())
         edges = list(self.graph.edges())
 
-        g = Graph(vertices, edges, layout="spring", layout_scale=3)
+        g = Graph(vertices, edges, layout="spring", layout_scale=3,
+                  vertex_config={"fill_color": BLUE, "radius": 0.3},
+                  edge_config={"stroke_color": GRAY})
 
-        # Add edge weights
-        for edge in self.graph.edges(data=True):
-            weight = Text(str(edge[2]['weight']), font_size=20)
-            g.add(weight.move_to(g.edges[edge[:2]].get_center()))
+        # Label all nodes
+        for node in g.vertices:
+            label = Text(str(node), font_size=24, color=WHITE)
+            label.move_to(g[node].get_center())
+            g.add(label)
 
         self.add(g)
 
@@ -401,24 +418,31 @@ class GraphVisualizationScene(Scene):
         path_text.to_edge(DOWN)
         self.add(path_text)
 
-        if self.path:
-            for i, node in enumerate(self.path):
-                # Highlight the current node
-                self.play(g[node].animate.set_color(RED), run_time=0.5)
+        visited_nodes = []
+        for i, edge in enumerate(self.path):
+            start, end = edge
 
-                # Update the path text
-                new_path_text = Text(f"Path: {' -> '.join(map(str, self.path[:i + 1]))}", font_size=24)
-                new_path_text.to_edge(DOWN)
-                self.play(Transform(path_text, new_path_text), run_time=0.5)
+            # Highlight the current edge
+            self.play(g.edges[edge].animate.set_color(RED), run_time=0.5)
 
-                if i < len(self.path) - 1:
-                    # Highlight the edge to the next node
-                    next_node = self.path[i + 1]
-                    self.play(g.edges[(node, next_node)].animate.set_color(RED), run_time=0.5)
+            # Highlight nodes
+            for node in [start, end]:
+                if node not in visited_nodes:
+                    self.play(g[node].animate.set_color(RED), run_time=0.5)
+                    visited_nodes.append(node)
+
+            # Update the path text
+            new_path_text = Text(f"Path: {' -> '.join(map(str, visited_nodes))}", font_size=24)
+            new_path_text.to_edge(DOWN)
+            self.play(Transform(path_text, new_path_text), run_time=0.5)
+
+            # Add stage label
+            stage_label = Text(f"Stage {i + 1}", font_size=20, color=YELLOW)
+            stage_label.next_to(g[end], UP)
+            self.play(FadeIn(stage_label))
 
         # Final state
         self.wait(1)
-
 
 class VisualizationPage(QWidget):
     def __init__(self, parent):
@@ -431,7 +455,7 @@ class VisualizationPage(QWidget):
     def init_ui(self):
         main_layout = QHBoxLayout()
 
-        # Left panel (1/6 of the screen)
+        # Left panel for controls (1/6 of the screen width)
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
         left_panel.setFixedWidth(self.width() // 6)
@@ -450,6 +474,11 @@ class VisualizationPage(QWidget):
         left_layout.addWidget(QLabel("Start Node:"))
         left_layout.addWidget(self.start_node_combo)
 
+        self.graph_type_combo = QComboBox()
+        self.graph_type_combo.addItems(["Complete Graph", "Linear Graph", "Star Graph", "Tree Graph"])
+        left_layout.addWidget(QLabel("Graph Type:"))
+        left_layout.addWidget(self.graph_type_combo)
+
         self.node_count_spin.valueChanged.connect(self.update_start_node_options)
 
         visualize_button = QPushButton("Visualize")
@@ -460,7 +489,7 @@ class VisualizationPage(QWidget):
 
         main_layout.addWidget(left_panel)
 
-        # Right panel (5/6 of the screen)
+        # Right panel for visualization and controls
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
 
@@ -468,13 +497,23 @@ class VisualizationPage(QWidget):
         self.video_widget = QVideoWidget()
         self.media_player = QMediaPlayer()
         self.media_player.setVideoOutput(self.video_widget)
-        right_layout.addWidget(self.video_widget)
+        right_layout.addWidget(self.video_widget, 7)  # 7/10 of the right panel
+
+        # Static image display (fallback)
+        self.image_label = QLabel()
+        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image_label.hide()
+        right_layout.addWidget(self.image_label, 7)  # 7/10 of the right panel
+
+        # Bottom controls panel
+        bottom_controls = QWidget()
+        bottom_layout = QVBoxLayout(bottom_controls)
 
         # Progress Slider
         self.progress_slider = QSlider(Qt.Orientation.Horizontal)
         self.progress_slider.setRange(0, 0)
         self.progress_slider.sliderMoved.connect(self.set_position)
-        right_layout.addWidget(self.progress_slider)
+        bottom_layout.addWidget(self.progress_slider)
 
         # Playback controls
         controls_layout = QHBoxLayout()
@@ -506,9 +545,10 @@ class VisualizationPage(QWidget):
         controls_layout.addWidget(self.forward_button)
         controls_layout.addWidget(self.replay_button)
 
-        right_layout.addLayout(controls_layout)
+        bottom_layout.addLayout(controls_layout)
+        right_layout.addWidget(bottom_controls, 3)  # 3/10 of the right panel
 
-        main_layout.addWidget(right_panel, 5)  # 5/6 of the screen width
+        main_layout.addWidget(right_panel, 5)  # 5/6 of the total width
 
         self.setLayout(main_layout)
         self.update_start_node_options(self.node_count_spin.value())
@@ -519,22 +559,32 @@ class VisualizationPage(QWidget):
 
     def update_start_node_options(self, num_nodes):
         self.start_node_combo.clear()
-        self.start_node_combo.addItems([str(i) for i in range(1, num_nodes + 1)])
+        self.start_node_combo.addItems([str(i) for i in range(num_nodes)])
 
     def set_algorithm(self, algorithm):
         self.algorithm = algorithm
 
     def visualize_graph(self):
-        num_nodes = self.node_count_spin.value()
-        start_node = self.start_node_combo.currentText()
-        self.parent.run_algorithm_visualization(num_nodes, start_node, self.algorithm)
+        try:
+            print("Visualize button clicked")
+            num_nodes = self.node_count_spin.value()
+            start_node = self.start_node_combo.currentText()
+            graph_type = self.graph_type_combo.currentText()
+            print(f"Visualizing: Nodes={num_nodes}, Start={start_node}, Type={graph_type}, Algorithm={self.algorithm}")
+            self.parent.run_algorithm_visualization(num_nodes, start_node, self.algorithm, graph_type)
+        except Exception as e:
+            print(f"Error in visualize_graph: {str(e)}")
+            traceback.print_exc()
+            self.show_error_message("Visualization Error", str(e))
 
     def visualize_path(self, graph, pos, path, algorithm):
         try:
+            print("Entering visualize_path method")
             if self.temp_dir:
                 shutil.rmtree(self.temp_dir, ignore_errors=True)
 
             self.temp_dir = tempfile.mkdtemp()
+            print(f"Created temporary directory: {self.temp_dir}")
 
             config.pixel_height = 480
             config.pixel_width = 854
@@ -556,17 +606,41 @@ class VisualizationPage(QWidget):
 
             self.media_player.setSource(QUrl.fromLocalFile(video_path))
             self.play_pause()
+            self.video_widget.show()
+            self.image_label.hide()
 
             print(f"Video successfully loaded from {video_path}")
-
         except Exception as e:
             print(f"Error in visualize_path: {str(e)}")
-            error_message = QMessageBox()
-            error_message.setIcon(QMessageBox.Icon.Critical)
-            error_message.setText("Error in video visualization")
-            error_message.setInformativeText(str(e))
-            error_message.setWindowTitle("Visualization Error")
-            error_message.exec()
+            traceback.print_exc()
+
+            # Fallback to static image
+            print("Falling back to static image")
+            plt.figure(figsize=(8, 6))
+            pos = nx.spring_layout(graph)
+            nx.draw(graph, pos, with_labels=True, node_color='lightblue', node_size=500, font_size=10,
+                    font_weight='bold')
+            edge_labels = nx.get_edge_attributes(graph, 'weight')
+            nx.draw_networkx_edge_labels(graph, pos, edge_labels=edge_labels)
+
+            plt.title(f"{algorithm} - Static Visualization")
+            img_path = os.path.join(self.temp_dir, 'graph.png')
+            plt.savefig(img_path)
+            plt.close()
+
+            pixmap = QPixmap(img_path)
+            self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.AspectRatioMode.KeepAspectRatio,
+                                                     Qt.TransformationMode.SmoothTransformation))
+            self.video_widget.hide()
+            self.image_label.show()
+
+            print(f"Static image saved to {img_path}")
+    def show_error_message(self, title, message):
+        error_box = QMessageBox()
+        error_box.setIcon(QMessageBox.Icon.Critical)
+        error_box.setWindowTitle(title)
+        error_box.setText(message)
+        error_box.exec()
 
     def play_pause(self):
         if self.media_player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
@@ -607,6 +681,8 @@ class VisualizationPage(QWidget):
         if self.temp_dir:
             shutil.rmtree(self.temp_dir, ignore_errors=True)
         super().closeEvent(event)
+
+    #
 def main():
     app = QApplication(sys.argv)
 
@@ -625,5 +701,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
