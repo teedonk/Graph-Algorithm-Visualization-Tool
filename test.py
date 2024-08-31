@@ -48,12 +48,21 @@ class GraphVisualizationApp(QMainWindow):
             traceback.print_exc()
             self.show_error_message("Visualization Error", str(e))
 
+
     def generate_networkx_graph(self, num_nodes, start_node, algorithm, graph_type):
-        G = nx.Graph()
+        if graph_type == "Directed Acyclic Graph":
+            G = nx.DiGraph()
+        else:
+            G = nx.Graph()
+
         G.add_nodes_from(range(num_nodes))
 
         def add_edge(i, j):
-            G.add_edge(i, j)
+            if graph_type == "Directed Acyclic Graph":
+                if i < j:  # Ensure edges only go from lower to higher numbered nodes
+                    G.add_edge(i, j)
+            else:
+                G.add_edge(i, j)
 
         if graph_type == "Complete Graph":
             for i in range(num_nodes):
@@ -69,6 +78,11 @@ class GraphVisualizationApp(QMainWindow):
             for i in range(1, num_nodes):
                 parent = random.randint(0, i - 1)
                 add_edge(parent, i)
+        elif graph_type == "Directed Acyclic Graph":
+            for i in range(num_nodes):
+                for j in range(i + 1, min(i + 3, num_nodes)):  # Add edges to 2-3 subsequent nodes
+                    if random.random() < 0.7:  # 70% chance of adding an edge
+                        add_edge(i, j)
 
         start_node = int(start_node)
 
@@ -83,7 +97,6 @@ class GraphVisualizationApp(QMainWindow):
             path = []
 
         return G, path
-
     def create_menu(self):
         menubar = self.menuBar()
         menubar.setStyleSheet("background-color: #444444; color: white;")
@@ -392,13 +405,35 @@ class GraphVisualizationScene(Scene):
         self.algorithm = algorithm
 
     def construct(self):
-        # Create Manim graph from NetworkX graph
         vertices = list(self.graph.nodes())
         edges = list(self.graph.edges())
 
-        g = Graph(vertices, edges, layout="spring", layout_scale=3,
-                  vertex_config={"fill_color": BLUE, "radius": 0.3},
-                  edge_config={"stroke_color": GRAY})
+        g = Graph(
+            vertices,
+            edges,
+            layout="spring",
+            layout_scale=3,
+            vertex_config={"fill_color": BLUE, "radius": 0.3},
+            edge_config={
+                "stroke_color": GRAY,
+                "buff": 0.3,  # Space between the edge and the nodes
+            }
+        )
+
+        # Add arrows for directed graphs
+        if isinstance(self.graph, nx.DiGraph):
+            for edge in edges:
+                start, end = edge
+                line = g.edges[edge]
+                arrow = Arrow(
+                    line.get_start(),
+                    line.get_end(),
+                    buff=0.3,
+                    color=GRAY,
+                    max_tip_length_to_length_ratio=0.1,
+                    max_stroke_width_to_length_ratio=2,
+                )
+                g.add(arrow)
 
         # Label all nodes
         for node in g.vertices:
@@ -443,7 +478,6 @@ class GraphVisualizationScene(Scene):
 
         # Final state
         self.wait(1)
-
 class VisualizationPage(QWidget):
     def __init__(self, parent):
         super().__init__()
@@ -475,7 +509,7 @@ class VisualizationPage(QWidget):
         left_layout.addWidget(self.start_node_combo)
 
         self.graph_type_combo = QComboBox()
-        self.graph_type_combo.addItems(["Complete Graph", "Linear Graph", "Star Graph", "Tree Graph"])
+        self.graph_type_combo.addItems(["Complete Graph", "Linear Graph", "Star Graph", "Tree Graph", "Directed Acyclic Graph"])
         left_layout.addWidget(QLabel("Graph Type:"))
         left_layout.addWidget(self.graph_type_combo)
 
