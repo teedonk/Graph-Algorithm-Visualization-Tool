@@ -19,7 +19,7 @@ class GraphVisualizationApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Graph Visualization Tool")
-        self.setGeometry(100, 100, 1440, 900)  # Adjust the width and height as needed
+        self.setGeometry(100, 100, 1440, 900)
         self.init_ui()
 
     def init_ui(self):
@@ -31,15 +31,16 @@ class GraphVisualizationApp(QMainWindow):
         self.create_example_page = CreateExampleWidget(self)
         self.algorithm_selection_page = AlgorithmSelectionWidget(self)
         self.visualization_page = VisualizationPage(self)
+        self.real_world_scenario_page = RealWorldScenarioWidget(self)
 
         self.central_widget.addWidget(self.home_page)
         self.central_widget.addWidget(self.built_in_examples_page)
         self.central_widget.addWidget(self.create_example_page)
         self.central_widget.addWidget(self.algorithm_selection_page)
         self.central_widget.addWidget(self.visualization_page)
+        self.central_widget.addWidget(self.real_world_scenario_page)
 
         self.create_menu()
-
     def show_error_message(self, title, message):
         QMessageBox.critical(self, title, message)
 
@@ -222,6 +223,13 @@ class GraphVisualizationApp(QMainWindow):
     def show_algorithm_selection(self):
         self.central_widget.setCurrentWidget(self.algorithm_selection_page)
 
+
+    def show_real_world_scenarios(self):
+        self.central_widget.setCurrentWidget(self.real_world_scenario_page)
+
+    def show_visualization_page(self):
+        self.central_widget.setCurrentWidget(self.visualization_page)
+
     def show_help(self):
         print("Help clicked")
 
@@ -250,39 +258,15 @@ class BuiltInExamplesWidget(QWidget):
 
         basic_button = self.create_option_button("Basic Example", "🔢",
                                                  "Learn graph algorithms using basic relatable examples")
-        basic_button.clicked.connect(self.parent.show_algorithm_selection)
+        basic_button.clicked.connect(self.show_algorithm_selection)
         options_layout.addWidget(basic_button)
 
         real_world_button = self.create_option_button("Real World Scenario", "🌍",
                                                       "Learn graph algorithms using real world applications and scenarios")
+        real_world_button.clicked.connect(self.show_real_world_scenarios)
         options_layout.addWidget(real_world_button)
 
         layout.addLayout(options_layout)
-
-        self.scenario_combo = QComboBox()
-        self.scenario_combo.addItems(
-            ["The Traveling Salesman Problem", "Finding the Least Congested Path in London Tube"])
-        self.scenario_combo.setStyleSheet("""
-            QComboBox {
-                background-color: #4CAF50;
-                color: white;
-                border: none;
-                padding: 10px;
-                font-size: 16px;
-                border-radius: 5px;
-            }
-            QComboBox::drop-down {
-                width: 30px;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #5CBF60;
-                color: white;
-                selection-background-color: #45a049;
-            }
-        """)
-        self.scenario_combo.currentIndexChanged.connect(self.parent.show_algorithm_selection)
-        self.scenario_combo.hide()
-        layout.addWidget(self.scenario_combo)
 
         back_button = QPushButton("Back")
         back_button.clicked.connect(self.parent.go_back)
@@ -308,16 +292,93 @@ class BuiltInExamplesWidget(QWidget):
         """)
         button.setToolTip(tooltip)
         QToolTip.setFont(QFont('SansSerif', 12))
-
-        if text == "Real World Scenario":
-            button.clicked.connect(self.toggle_scenario_dropdown)
-
         return button
 
-    def toggle_scenario_dropdown(self):
-        self.scenario_combo.setVisible(not self.scenario_combo.isVisible())
+    def show_algorithm_selection(self):
+        self.parent.show_algorithm_selection()
+
+    def show_real_world_scenarios(self):
+        self.parent.show_real_world_scenarios()
 
 
+class RealWorldScenarioWidget(QWidget):
+    def __init__(self, parent):
+        super().__init__()
+        self.parent = parent
+        self.init_ui()
+
+    def init_ui(self):
+        layout = QVBoxLayout()
+
+        title = QLabel("Real World Scenarios")
+        title.setFont(QFont("Arial", 24, QFont.Weight.Bold))
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title.setStyleSheet("color: #FFD700; margin-bottom: 20px;")
+        layout.addWidget(title)
+
+        self.scenario_combo = QComboBox()
+        self.scenario_combo.addItems(["The Traveling Salesman Problem", "Finding the Least Congested Path in London Tube"])
+        self.scenario_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 10px;
+                font-size: 16px;
+                border-radius: 5px;
+            }
+            QComboBox::drop-down {
+                width: 30px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #5CBF60;
+                color: white;
+                selection-background-color: #45a049;
+            }
+        """)
+        layout.addWidget(self.scenario_combo)
+
+        self.algorithm_combo = QComboBox()
+        self.algorithm_combo.addItems(["Breadth-First Search (BFS)", "Depth-First Search (DFS)", "Dijkstra's Algorithm", "A* Algorithm"])
+        self.algorithm_combo.setStyleSheet(self.scenario_combo.styleSheet())
+        layout.addWidget(self.algorithm_combo)
+
+        visualize_button = QPushButton("Visualize")
+        visualize_button.clicked.connect(self.visualize)
+        visualize_button.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                padding: 15px;
+                font-size: 16px;
+                border-radius: 10px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        layout.addWidget(visualize_button)
+
+        back_button = QPushButton("Back")
+        back_button.clicked.connect(self.go_back)
+        back_button.setStyleSheet(visualize_button.styleSheet().replace("#3498db", "#FF5733"))
+        layout.addWidget(back_button)
+
+        self.setLayout(layout)
+        self.setStyleSheet("background-color: #2D2D2D;")
+
+    def visualize(self):
+        scenario = self.scenario_combo.currentText()
+        algorithm = self.algorithm_combo.currentText()
+        # Here you would implement the visualization for the selected real-world scenario
+        # For now, we'll just print the selected options
+        print(f"Visualizing {scenario} using {algorithm}")
+        # In the future, you can replace this with actual visualization logic
+        self.parent.show_visualization_page()
+
+    def go_back(self):
+        self.parent.show_built_in_examples()
 class AlgorithmSelectionWidget(QWidget):
     def __init__(self, parent):
         super().__init__()
