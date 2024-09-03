@@ -13,6 +13,7 @@ import networkx as nx
 import shutil
 import matplotlib.pyplot as plt
 import traceback
+import logging
 
 class GraphVisualizationApp(QMainWindow):
     def __init__(self):
@@ -39,17 +40,26 @@ class GraphVisualizationApp(QMainWindow):
 
         self.create_menu()
 
-    def run_algorithm_visualization(self, num_nodes, start_node, algorithm, graph_type):
+    def show_error_message(self, title, message):
+        QMessageBox.critical(self, title, message)
+
+    def run_algorithm_visualization(self, num_nodes, start_node, end_node, algorithm, graph_type):
         try:
-            graph, path = self.generate_networkx_graph(num_nodes, start_node, algorithm, graph_type)
+            logger.info(
+                f"Running algorithm visualization: Nodes={num_nodes}, Start={start_node}, End={end_node}, Algorithm={algorithm}, Graph Type={graph_type}")
+            graph, path = self.generate_networkx_graph(num_nodes, start_node, end_node, algorithm, graph_type)
+            logger.info(f"Generated graph with {len(graph.nodes())} nodes and {len(graph.edges())} edges")
+            logger.info(f"Generated path: {path}")
             self.visualization_page.visualize_path(graph, None, path, algorithm)
         except Exception as e:
-            print(f"Error in run_algorithm_visualization: {str(e)}")
-            traceback.print_exc()
-            self.show_error_message("Visualization Error", str(e))
+            logger.error(f"Error in run_algorithm_visualization: {str(e)}")
+            logger.error(traceback.format_exc())
+            error_message = f"An error occurred during visualization: {str(e)}\n\nPlease try different parameters or contact support."
+            self.show_error_message("Visualization Error", error_message)
 
-
-    def generate_networkx_graph(self, num_nodes, start_node, algorithm, graph_type):
+    def generate_networkx_graph(self, num_nodes, start_node, end_node, algorithm, graph_type):
+        logger.info(
+            f"Generating NetworkX graph: Nodes={num_nodes}, Start={start_node}, End={end_node}, Algorithm={algorithm}, Graph Type={graph_type}")
         if graph_type == "Directed Acyclic Graph":
             G = nx.DiGraph()
         else:
@@ -58,11 +68,8 @@ class GraphVisualizationApp(QMainWindow):
         G.add_nodes_from(range(num_nodes))
 
         def add_edge(i, j):
-            if graph_type == "Directed Acyclic Graph":
-                if i < j:  # Ensure edges only go from lower to higher numbered nodes
-                    G.add_edge(i, j)
-            else:
-                G.add_edge(i, j)
+            weight = random.randint(1, 10)
+            G.add_edge(i, j, weight=weight)
 
         if graph_type == "Complete Graph":
             for i in range(num_nodes):
@@ -80,22 +87,68 @@ class GraphVisualizationApp(QMainWindow):
                 add_edge(parent, i)
         elif graph_type == "Directed Acyclic Graph":
             for i in range(num_nodes):
-                for j in range(i + 1, min(i + 3, num_nodes)):  # Add edges to 2-3 subsequent nodes
-                    if random.random() < 0.7:  # 70% chance of adding an edge
+                for j in range(i + 1, num_nodes):
+                    if random.random() < 0.3:  # 30% chance of adding an edge
                         add_edge(i, j)
 
+        logger.info(f"Generated graph with {len(G.nodes())} nodes and {len(G.edges())} edges")
+
         start_node = int(start_node)
+        end_node = int(end_node) if end_node is not None else None
+
+        # Ensure the graph is connected
+        if isinstance(G, nx.DiGraph):
+            if not nx.is_weakly_connected(G):
+                # For directed graphs, add edges to ensure weak connectivity
+                nodes = list(G.nodes())
+                for i in range(len(nodes) - 1):
+                    G.add_edge(nodes[i], nodes[i + 1], weight=random.randint(1, 10))
+        else:
+            if not nx.is_connected(G):
+                # For undirected graphs, add edges to ensure connectivity
+                nodes = list(G.nodes())
+                for i in range(len(nodes) - 1):
+                    G.add_edge(nodes[i], nodes[i + 1], weight=random.randint(1, 10))
+
+        def find_shortest_path_visiting_all_nodes(G, start_node, algorithm):
+            unvisited = set(G.nodes())
+            current_node = start_node
+            path = [current_node]
+            unvisited.remove(current_node)
+
+            while unvisited:
+                reachable_nodes = [n for n in unvisited if nx.has_path(G, current_node, n)]
+                if not reachable_nodes:
+                    # If no unvisited nodes are reachable, find the shortest path to any unvisited node
+                    next_node = min(unvisited,
+                                    key=lambda n: nx.shortest_path_length(G, current_node, n, weight='weight'))
+                else:
+                    if algorithm == "Dijkstra's Algorithm":
+                        next_node = min(reachable_nodes,
+                                        key=lambda n: nx.dijkstra_path_length(G, current_node, n, weight='weight'))
+                        segment = nx.dijkstra_path(G, current_node, next_node, weight='weight')
+                    else:  # A* Algorithm
+                        next_node = min(reachable_nodes,
+                                        key=lambda n: nx.astar_path_length(G, current_node, n, weight='weight'))
+                        segment = nx.astar_path(G, current_node, next_node, weight='weight')
+
+                path.extend(segment[1:])
+                unvisited.remove(next_node)
+                current_node = next_node
+
+            return path
 
         if algorithm == "Breadth-First Search (BFS)":
             path = list(nx.bfs_edges(G, source=start_node))
         elif algorithm == "Depth-First Search (DFS)":
             path = list(nx.dfs_edges(G, source=start_node))
-        elif algorithm == "Dijkstra's Algorithm":
-            path = nx.dijkstra_path(G, source=start_node, target=num_nodes - 1)
-            path = list(zip(path[:-1], path[1:]))
+        elif algorithm == "Dijkstra's Algorithm" or algorithm == "A* Algorithm":
+            full_path = find_shortest_path_visiting_all_nodes(G, start_node, algorithm)
+            path = list(zip(full_path[:-1], full_path[1:]))
         else:
             path = []
 
+        logger.info(f"Generated path: {path}")
         return G, path
     def create_menu(self):
         menubar = self.menuBar()
@@ -322,14 +375,28 @@ class AlgorithmSelectionWidget(QWidget):
         traversal_layout.addWidget(traversal_button)
 
         self.traversal_combo = QComboBox()
-        self.traversal_combo.addItems(
-            ["Breadth-First Search (BFS)", "Depth-First Search (DFS)", "Dijkstra's Algorithm"])
+        self.traversal_combo.addItems(["Breadth-First Search (BFS)", "Depth-First Search (DFS)"])
         self.traversal_combo.setStyleSheet(combo_style)
         self.traversal_combo.hide()
         traversal_layout.addWidget(self.traversal_combo)
 
         traversal_button.clicked.connect(self.toggle_traversal_options)
         layout.addLayout(traversal_layout)
+
+        # Pathfinding Algorithm section
+        pathfinding_layout = QVBoxLayout()
+        pathfinding_button = QPushButton("Pathfinding Algorithm")
+        pathfinding_button.setStyleSheet(button_style)
+        pathfinding_layout.addWidget(pathfinding_button)
+
+        self.pathfinding_combo = QComboBox()
+        self.pathfinding_combo.addItems(["Dijkstra's Algorithm", "A* Algorithm"])
+        self.pathfinding_combo.setStyleSheet(combo_style)
+        self.pathfinding_combo.hide()
+        pathfinding_layout.addWidget(self.pathfinding_combo)
+
+        pathfinding_button.clicked.connect(self.toggle_pathfinding_options)
+        layout.addLayout(pathfinding_layout)
 
         # Visualization button
         visualize_button = QPushButton("Visualize")
@@ -347,12 +414,22 @@ class AlgorithmSelectionWidget(QWidget):
 
     def toggle_traversal_options(self):
         self.traversal_combo.setVisible(not self.traversal_combo.isVisible())
+        self.pathfinding_combo.hide()
+
+    def toggle_pathfinding_options(self):
+        self.pathfinding_combo.setVisible(not self.pathfinding_combo.isVisible())
+        self.traversal_combo.hide()
 
     def show_visualization(self):
-        selected_algorithm = self.traversal_combo.currentText()
+        if self.traversal_combo.isVisible():
+            selected_algorithm = self.traversal_combo.currentText()
+        elif self.pathfinding_combo.isVisible():
+            selected_algorithm = self.pathfinding_combo.currentText()
+        else:
+            selected_algorithm = "No algorithm selected"
+
         self.parent.visualization_page.set_algorithm(selected_algorithm)
         self.parent.central_widget.setCurrentWidget(self.parent.visualization_page)
-
 class CreateExampleWidget(QWidget):
     def __init__(self, parent):
         super().__init__()
@@ -397,34 +474,42 @@ class CreateExampleWidget(QWidget):
         self.setStyleSheet("background-color: #2D2D2D;")
 
 
+
 class GraphVisualizationScene(Scene):
     def __init__(self, graph, path, algorithm, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.graph = graph
         self.path = path
         self.algorithm = algorithm
+        logger.info(f"Initializing GraphVisualizationScene: Algorithm={algorithm}, Path={path}")
 
     def construct(self):
         vertices = list(self.graph.nodes())
-        edges = list(self.graph.edges())
+        edges = list(self.graph.edges(data=True))
+
+        logger.info(f"Constructing graph with {len(vertices)} vertices and {len(edges)} edges")
 
         g = Graph(
             vertices,
-            edges,
+            [(e[0], e[1]) for e in edges],
             layout="spring",
             layout_scale=3,
             vertex_config={"fill_color": BLUE, "radius": 0.3},
             edge_config={
                 "stroke_color": GRAY,
-                "buff": 0.3,  # Space between the edge and the nodes
+                "buff": 0.3,
             }
         )
 
-        # Add arrows for directed graphs
-        if isinstance(self.graph, nx.DiGraph):
-            for edge in edges:
-                start, end = edge
-                line = g.edges[edge]
+        # Add arrows for directed graphs and edge weights for pathfinding algorithms
+        edge_weights = {}
+        weight_labels = {}
+        for edge in edges:
+            start, end, data = edge
+            line = g.edges[(start, end)]
+
+            # Add arrow for directed graphs
+            if isinstance(self.graph, nx.DiGraph):
                 arrow = Arrow(
                     line.get_start(),
                     line.get_end(),
@@ -434,6 +519,14 @@ class GraphVisualizationScene(Scene):
                     max_stroke_width_to_length_ratio=2,
                 )
                 g.add(arrow)
+
+            # Add edge weight label only for pathfinding algorithms
+            if 'weight' in data and ("Dijkstra" in self.algorithm or "A*" in self.algorithm):
+                weight = data['weight']
+                weight_label = Text(str(weight), font_size=16, color=WHITE)
+                weight_label.move_to(line.get_center() + UP * 0.1)
+                weight_labels[(start, end)] = weight_label
+                edge_weights[(start, end)] = weight
 
         # Label all nodes
         for node in g.vertices:
@@ -448,36 +541,92 @@ class GraphVisualizationScene(Scene):
         title.to_edge(UP)
         self.add(title)
 
-        # Animate the path
+        # Initialize path text
         path_text = Text("Path: ", font_size=24)
         path_text.to_edge(DOWN)
         self.add(path_text)
 
-        visited_nodes = []
-        for i, edge in enumerate(self.path):
-            start, end = edge
+        # Initialize distance text for Dijkstra's and A*
+        if "Dijkstra" in self.algorithm or "A*" in self.algorithm:
+            distance_text = Text("Distance: 0", font_size=24)
+            distance_text.next_to(path_text, UP)
+            self.add(distance_text)
 
-            # Highlight the current edge
-            self.play(g.edges[edge].animate.set_color(RED), run_time=0.5)
+        visited_nodes = set()
+        total_distance = 0
+        invalid_edges = []
 
-            # Highlight nodes
-            for node in [start, end]:
-                if node not in visited_nodes:
-                    self.play(g[node].animate.set_color(RED), run_time=0.5)
-                    visited_nodes.append(node)
+        # Add all weight labels at once for pathfinding algorithms
+        if "Dijkstra" in self.algorithm or "A*" in self.algorithm:
+            self.add(*weight_labels.values())
 
-            # Update the path text
-            new_path_text = Text(f"Path: {' -> '.join(map(str, visited_nodes))}", font_size=24)
-            new_path_text.to_edge(DOWN)
-            self.play(Transform(path_text, new_path_text), run_time=0.5)
+        logger.info(f"Starting path animation: {self.path}")
+        if not self.path:
+            self.add(Text("No path found or start/end nodes are the same", font_size=24, color=RED).next_to(title, DOWN))
+        else:
+            for i, edge in enumerate(self.path):
+                start, end = edge
+                logger.info(f"Animating edge {i}: {start} -> {end}")
 
-            # Add stage label
-            stage_label = Text(f"Stage {i + 1}", font_size=20, color=YELLOW)
-            stage_label.next_to(g[end], UP)
-            self.play(FadeIn(stage_label))
+                # Check if the edge exists in the graph
+                if (start, end) in g.edges or (end, start) in g.edges:
+                    # Highlight the current edge
+                    edge_to_highlight = (start, end) if (start, end) in g.edges else (end, start)
+                    self.play(g.edges[edge_to_highlight].animate.set_color(RED), run_time=0.5)
+                else:
+                    invalid_edges.append((start, end))
+                    logger.warning(f"Edge {start} -> {end} does not exist in the graph")
+
+                # Highlight nodes
+                for node in [start, end]:
+                    if node not in visited_nodes:
+                        self.play(g[node].animate.set_color(RED), run_time=0.5)
+                        visited_nodes.add(node)
+
+                # Update the path text
+                new_path_text = Text(f"Path: {' -> '.join(map(str, visited_nodes))}", font_size=24)
+                new_path_text.to_edge(DOWN)
+                self.play(Transform(path_text, new_path_text), run_time=0.5)
+
+                # Update distance for Dijkstra's and A*
+                if "Dijkstra" in self.algorithm or "A*" in self.algorithm:
+                    if (start, end) in edge_weights or (end, start) in edge_weights:
+                        total_distance += edge_weights.get((start, end), edge_weights.get((end, start), 0))
+                        new_distance_text = Text(f"Distance: {total_distance}", font_size=24)
+                        new_distance_text.next_to(new_path_text, UP)
+                        self.play(Transform(distance_text, new_distance_text), run_time=0.5)
+
+                # Add stage label
+                stage_label = Text(f"Stage {i + 1}", font_size=20, color=YELLOW)
+                stage_label.next_to(g[end], UP)
+                self.play(FadeIn(stage_label))
+
+                # Pause to allow viewers to see the current state
+                self.wait(1)
+
+        # Highlight any remaining unvisited nodes
+        unvisited_nodes = set(vertices) - visited_nodes
+        if unvisited_nodes:
+            for node in unvisited_nodes:
+                self.play(g[node].animate.set_color(YELLOW), run_time=0.5)
+
+            unvisited_text = Text(f"Unvisited nodes: {', '.join(map(str, unvisited_nodes))}", font_size=20, color=YELLOW)
+            unvisited_text.next_to(path_text, UP)
+            self.play(FadeIn(unvisited_text))
+
+        # Display invalid edges if any
+        if invalid_edges:
+            invalid_edges_text = Text(f"Invalid edges: {', '.join([f'{s}->{e}' for s, e in invalid_edges])}",
+                                      font_size=20, color=RED)
+            invalid_edges_text.next_to(unvisited_text, UP) if unvisited_nodes else invalid_edges_text.next_to(path_text, UP)
+            self.play(FadeIn(invalid_edges_text))
 
         # Final state
-        self.wait(1)
+        self.wait(2)
+        logger.info("Finished constructing and animating the scene")
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
 class VisualizationPage(QWidget):
     def __init__(self, parent):
         super().__init__()
@@ -508,12 +657,17 @@ class VisualizationPage(QWidget):
         left_layout.addWidget(QLabel("Start Node:"))
         left_layout.addWidget(self.start_node_combo)
 
+        self.end_node_combo = QComboBox()
+        left_layout.addWidget(QLabel("End Node:"))
+        left_layout.addWidget(self.end_node_combo)
+        self.end_node_combo.hide()
+
         self.graph_type_combo = QComboBox()
         self.graph_type_combo.addItems(["Complete Graph", "Linear Graph", "Star Graph", "Tree Graph", "Directed Acyclic Graph"])
         left_layout.addWidget(QLabel("Graph Type:"))
         left_layout.addWidget(self.graph_type_combo)
 
-        self.node_count_spin.valueChanged.connect(self.update_start_node_options)
+        self.node_count_spin.valueChanged.connect(self.update_node_options)
 
         visualize_button = QPushButton("Visualize")
         visualize_button.clicked.connect(self.visualize_graph)
@@ -585,46 +739,55 @@ class VisualizationPage(QWidget):
         main_layout.addWidget(right_panel, 5)  # 5/6 of the total width
 
         self.setLayout(main_layout)
-        self.update_start_node_options(self.node_count_spin.value())
+        self.update_node_options(self.node_count_spin.value())
 
         # Connect media player signals
         self.media_player.durationChanged.connect(self.update_duration)
         self.media_player.positionChanged.connect(self.update_position)
 
-    def update_start_node_options(self, num_nodes):
+    def update_node_options(self, num_nodes):
         self.start_node_combo.clear()
-        self.start_node_combo.addItems([str(i) for i in range(num_nodes)])
+        self.end_node_combo.clear()
+        for i in range(num_nodes):
+            self.start_node_combo.addItem(str(i))
+            self.end_node_combo.addItem(str(i))
 
     def set_algorithm(self, algorithm):
         self.algorithm = algorithm
+        if "Dijkstra" in algorithm or "A*" in algorithm:
+            self.end_node_combo.show()
+        else:
+            self.end_node_combo.hide()
 
     def visualize_graph(self):
         try:
-            print("Visualize button clicked")
+            logger.info("Visualize button clicked")
             num_nodes = self.node_count_spin.value()
-            start_node = self.start_node_combo.currentText()
+            start_node = int(self.start_node_combo.currentText())
+            end_node = int(self.end_node_combo.currentText()) if self.end_node_combo.isVisible() else None
             graph_type = self.graph_type_combo.currentText()
-            print(f"Visualizing: Nodes={num_nodes}, Start={start_node}, Type={graph_type}, Algorithm={self.algorithm}")
-            self.parent.run_algorithm_visualization(num_nodes, start_node, self.algorithm, graph_type)
+            logger.info(f"Visualizing: Nodes={num_nodes}, Start={start_node}, End={end_node}, Type={graph_type}, Algorithm={self.algorithm}")
+            self.parent.run_algorithm_visualization(num_nodes, start_node, end_node, self.algorithm, graph_type)
         except Exception as e:
-            print(f"Error in visualize_graph: {str(e)}")
-            traceback.print_exc()
+            logger.error(f"Error in visualize_graph: {str(e)}")
+            logger.error(traceback.format_exc())
             self.show_error_message("Visualization Error", str(e))
 
     def visualize_path(self, graph, pos, path, algorithm):
         try:
-            print("Entering visualize_path method")
+            logger.info("Entering visualize_path method")
             if self.temp_dir:
                 shutil.rmtree(self.temp_dir, ignore_errors=True)
 
             self.temp_dir = tempfile.mkdtemp()
-            print(f"Created temporary directory: {self.temp_dir}")
+            logger.info(f"Created temporary directory: {self.temp_dir}")
 
             config.pixel_height = 480
             config.pixel_width = 854
             config.frame_rate = 15
 
             scene = GraphVisualizationScene(graph, path, algorithm)
+            logger.info("Rendering scene...")
             scene.render()
 
             rendered_video = 'media/videos/480p15/GraphVisualizationScene.mp4'
@@ -638,18 +801,23 @@ class VisualizationPage(QWidget):
             if not os.path.exists(video_path):
                 raise FileNotFoundError(f"Video not found at {video_path}")
 
+            logger.info(f"Setting media source: {video_path}")
             self.media_player.setSource(QUrl.fromLocalFile(video_path))
             self.play_pause()
             self.video_widget.show()
             self.image_label.hide()
 
-            print(f"Video successfully loaded from {video_path}")
+            logger.info(f"Video successfully loaded from {video_path}")
         except Exception as e:
-            print(f"Error in visualize_path: {str(e)}")
-            traceback.print_exc()
+            logger.error(f"Error in visualize_path: {str(e)}")
+            logger.error(traceback.format_exc())
 
             # Fallback to static image
-            print("Falling back to static image")
+            logger.info("Falling back to static image")
+            self.create_static_image(graph, algorithm)
+
+    def create_static_image(self, graph, algorithm):
+        try:
             plt.figure(figsize=(8, 6))
             pos = nx.spring_layout(graph)
             nx.draw(graph, pos, with_labels=True, node_color='lightblue', node_size=500, font_size=10,
@@ -668,7 +836,11 @@ class VisualizationPage(QWidget):
             self.video_widget.hide()
             self.image_label.show()
 
-            print(f"Static image saved to {img_path}")
+            logger.info(f"Static image saved to {img_path}")
+        except Exception as e:
+            logger.error(f"Error creating static image: {str(e)}")
+            logger.error(traceback.format_exc())
+            self.show_error_message("Visualization Error", "Failed to create static image")
     def show_error_message(self, title, message):
         error_box = QMessageBox()
         error_box.setIcon(QMessageBox.Icon.Critical)
