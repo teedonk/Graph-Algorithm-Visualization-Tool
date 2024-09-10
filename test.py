@@ -14,7 +14,12 @@ import shutil
 import matplotlib.pyplot as plt
 import traceback
 import logging
+import subprocess
+import numpy as np
+import matplotlib.animation as animation
+import json
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 class GraphVisualizationApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -32,6 +37,8 @@ class GraphVisualizationApp(QMainWindow):
         self.algorithm_selection_page = AlgorithmSelectionWidget(self)
         self.visualization_page = VisualizationPage(self)
         self.real_world_scenario_page = RealWorldScenarioWidget(self)
+        self.real_world_visualization_page = RealWorldVisualizationPage(self)
+        self.london_tube_visualization_page = LondonTubeVisualizationPage(self)
 
         self.central_widget.addWidget(self.home_page)
         self.central_widget.addWidget(self.built_in_examples_page)
@@ -39,11 +46,15 @@ class GraphVisualizationApp(QMainWindow):
         self.central_widget.addWidget(self.algorithm_selection_page)
         self.central_widget.addWidget(self.visualization_page)
         self.central_widget.addWidget(self.real_world_scenario_page)
+        self.central_widget.addWidget(self.real_world_visualization_page)
+        self.central_widget.addWidget(self.london_tube_visualization_page)
 
         self.create_menu()
     def show_error_message(self, title, message):
         QMessageBox.critical(self, title, message)
 
+    def show_london_tube_visualization_page(self):
+        self.central_widget.setCurrentWidget(self.london_tube_visualization_page)
     def run_algorithm_visualization(self, num_nodes, start_node, end_node, algorithm, graph_type):
         try:
             logger.info(
@@ -229,6 +240,8 @@ class GraphVisualizationApp(QMainWindow):
 
     def show_visualization_page(self):
         self.central_widget.setCurrentWidget(self.visualization_page)
+    def show_real_world_visualization_page(self):
+        self.central_widget.setCurrentWidget(self.real_world_visualization_page)
 
     def show_help(self):
         print("Help clicked")
@@ -371,11 +384,13 @@ class RealWorldScenarioWidget(QWidget):
     def visualize(self):
         scenario = self.scenario_combo.currentText()
         algorithm = self.algorithm_combo.currentText()
-        # Here you would implement the visualization for the selected real-world scenario
-        # For now, we'll just print the selected options
-        print(f"Visualizing {scenario} using {algorithm}")
-        # In the future, you can replace this with actual visualization logic
-        self.parent.show_visualization_page()
+        if scenario == "Finding the Least Congested Path in London Tube":
+            self.parent.london_tube_visualization_page.algorithm_combo.setCurrentText(algorithm)
+            self.parent.central_widget.setCurrentWidget(self.parent.london_tube_visualization_page)
+        elif scenario == "The Traveling Salesman Problem":
+            self.parent.real_world_visualization_page.set_scenario_and_algorithm(scenario, algorithm)
+            self.parent.show_real_world_visualization_page()
+
 
     def go_back(self):
         self.parent.show_built_in_examples()
@@ -949,7 +964,426 @@ class VisualizationPage(QWidget):
             shutil.rmtree(self.temp_dir, ignore_errors=True)
         super().closeEvent(event)
 
+
+logger = logging.getLogger(__name__)
+
+
+class RealWorldVisualizationPage(QWidget):
+    def __init__(self, parent):
+        super().__init__()
+        self.parent = parent
+        self.algorithm = ""
+        self.temp_dir = None
+        self.scenario = ""
+        self.init_ui()
+
+    def init_ui(self):
+        layout = QVBoxLayout()
+
+        # Video player
+        self.video_widget = QVideoWidget()
+        self.media_player = QMediaPlayer()
+        self.media_player.setVideoOutput(self.video_widget)
+        layout.addWidget(self.video_widget)
+
+        # Playback controls
+        controls_layout = QHBoxLayout()
+        self.play_button = QPushButton("Play/Pause")
+        self.play_button.clicked.connect(self.play_pause)
+        controls_layout.addWidget(self.play_button)
+
+        self.stop_button = QPushButton("Stop")
+        self.stop_button.clicked.connect(self.stop)
+        controls_layout.addWidget(self.stop_button)
+
+        layout.addLayout(controls_layout)
+
+        self.setLayout(layout)
+
+    def create_tsp_visualization(self, data, path, algorithm_name):
+        # Create a graph
+        G = nx.Graph()
+        for i, (x, y) in enumerate(data):
+            G.add_node(i, pos=(x, y))
+        for (u, v) in path:
+            G.add_edge(u, v)
+
+        # Create a figure and axis
+        fig, ax = plt.subplots(figsize=(10, 8))
+        pos = nx.get_node_attributes(G, 'pos')
+
+        def update(frame):
+            ax.clear()
+            nx.draw(G, pos, with_labels=True, node_color='lightblue', node_size=500, ax=ax)
+            edge_list = path[:frame+1]
+            nx.draw_networkx_edges(G, pos, edgelist=edge_list, edge_color='r', width=2, ax=ax)
+            ax.set_title(f"{algorithm_name} - Step {frame+1}/{len(path)}")
+
+        # Create animation
+        anim = animation.FuncAnimation(fig, update, frames=len(path), repeat=False, interval=500)
+
+        # Save animation as video
+        video_path = os.path.join(self.temp_dir, 'tsp_animation.mp4')
+        anim.save(video_path, writer='ffmpeg', fps=2)
+
+        plt.close(fig)
+
+        return video_path
+
+    def visualize_tsp(self):
+        try:
+            # Load the CSV data
+            data = np.loadtxt('tiny.csv', delimiter=',')
+
+            # Create a graph from the data
+            G = nx.Graph()
+            for i, (x, y) in enumerate(data):
+                G.add_node(i, pos=(x, y))
+            for i in range(len(data)):
+                for j in range(i + 1, len(data)):
+                    dist = np.linalg.norm(data[i] - data[j])
+                    G.add_edge(i, j, weight=dist)
+
+            # Generate a path based on the selected algorithm
+            if self.algorithm == "Breadth-First Search (BFS)":
+                path = list(nx.bfs_edges(G, source=0))
+            elif self.algorithm == "Depth-First Search (DFS)":
+                path = list(nx.dfs_edges(G, source=0))
+            elif self.algorithm == "Dijkstra's Algorithm":
+                path = nx.dijkstra_path(G, source=0, target=len(data) - 1)
+                path = list(zip(path[:-1], path[1:]))
+            elif self.algorithm == "A* Algorithm":
+                path = nx.astar_path(G, source=0, target=len(data) - 1)
+                path = list(zip(path[:-1], path[1:]))
+            else:
+                QMessageBox.warning(self, "Error", "Invalid algorithm selected.")
+                return
+
+            # Create and render the visualization
+            video_path = self.create_tsp_visualization(data, path, self.algorithm)
+
+            # Play the video
+            self.media_player.setSource(QUrl.fromLocalFile(video_path))
+            self.play_pause()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Visualization Error", f"An error occurred: {str(e)}")
+
+    def play_pause(self):
+        if self.media_player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+            self.media_player.pause()
+        else:
+            self.media_player.play()
+
+    def stop(self):
+        self.media_player.stop()
+
+    def set_scenario_and_algorithm(self, scenario, algorithm):
+        self.scenario = scenario
+        self.algorithm = algorithm
+
+    def visualize_scenario(self):
+        if self.scenario == "The Traveling Salesman Problem":
+            self.visualize_tsp()
+        else:
+            QMessageBox.warning(self, "Error", "Invalid scenario selected.")
+
+    def closeEvent(self, event):
+        if self.temp_dir:
+            shutil.rmtree(self.temp_dir, ignore_errors=True)
+        super().closeEvent(event)
+    def visualize_london_tube(self):
+        # Placeholder for London Tube visualization
+        QMessageBox.information(self, "Information", "London Tube visualization not implemented yet.")
+
+
+    def backward(self):
+        new_position = max(0, self.media_player.position() - 5000)  # Go back 5 seconds
+        self.media_player.setPosition(new_position)
+
+    def forward(self):
+        new_position = min(self.media_player.duration(), self.media_player.position() + 5000)  # Go forward 5 seconds
+        self.media_player.setPosition(new_position)
+
+    def replay(self):
+        self.media_player.setPosition(0)
+        self.media_player.play()
+        self.play_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPause))
+
+    def update_duration(self, duration):
+        self.progress_slider.setRange(0, duration)
+
+    def update_position(self, position):
+        if not self.progress_slider.isSliderDown():
+            self.progress_slider.setValue(position)
+
+    def set_position(self, position):
+        self.media_player.setPosition(position)
+
+    def closeEvent(self, event):
+        if self.temp_dir:
+            shutil.rmtree(self.temp_dir, ignore_errors=True)
+        super().closeEvent(event)
+
+class LondonTubeVisualizationPage(QWidget):
+    def __init__(self, parent):
+        super().__init__()
+        self.parent = parent
+        self.graph = None
+        self.paths = []
+        self.init_ui()
+
+    def init_ui(self):
+        main_layout = QHBoxLayout()
+
+        # Left panel for controls (2/6 of the screen width)
+        left_panel = QWidget()
+        left_layout = QVBoxLayout(left_panel)
+        left_panel.setFixedWidth(self.width() * 2 // 6)
+
+        title = QLabel("London Tube Least Congested Path")
+        title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        left_layout.addWidget(title)
+
+        # Day selection
+        self.day_combo = QComboBox()
+        self.day_combo.addItems(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"])
+        left_layout.addWidget(QLabel("Select Day:"))
+        left_layout.addWidget(self.day_combo)
+        self.day_combo.currentTextChanged.connect(self.load_data)
+
+        # Starting station selection
+        self.start_station_combo = QComboBox()
+        self.start_station_combo.addItems(self.get_station_names())
+        left_layout.addWidget(QLabel("Starting Station:"))
+        left_layout.addWidget(self.start_station_combo)
+
+        # Ending station selection
+        self.end_station_combo = QComboBox()
+        self.end_station_combo.addItems(self.get_station_names())
+        left_layout.addWidget(QLabel("Ending Station:"))
+        left_layout.addWidget(self.end_station_combo)
+
+        # Search for path button
+        self.search_button = QPushButton("Search for Path")
+        self.search_button.clicked.connect(self.search_path)
+        left_layout.addWidget(self.search_button)
+
+        # Path count display
+        self.path_count_label = QLabel("Paths found: 0")
+        left_layout.addWidget(self.path_count_label)
+
+        # Graph algorithm selection
+        self.algorithm_combo = QComboBox()
+        self.algorithm_combo.addItems(["Breadth-First Search (BFS)", "Depth-First Search (DFS)", "Dijkstra's Algorithm", "A* Algorithm"])
+        left_layout.addWidget(QLabel("Graph Algorithm:"))
+        left_layout.addWidget(self.algorithm_combo)
+
+        # Visualize button
+        self.visualize_button = QPushButton("Visualize")
+        self.visualize_button.clicked.connect(self.visualize)
+        left_layout.addWidget(self.visualize_button)
+
+        left_layout.addStretch()
+
+        main_layout.addWidget(left_panel)
+
+        # Right panel for visualization (4/6 of the screen width)
+        right_panel = QWidget()
+        right_layout = QVBoxLayout(right_panel)
+
+        # Video player
+        self.video_widget = QVideoWidget()
+        self.media_player = QMediaPlayer()
+        self.media_player.setVideoOutput(self.video_widget)
+        right_layout.addWidget(self.video_widget, 7)  # 7/10 of the right panel
+
+        # Progress Slider
+        self.progress_slider = QSlider(Qt.Orientation.Horizontal)
+        self.progress_slider.setRange(0, 0)
+        self.progress_slider.sliderMoved.connect(self.set_position)
+        right_layout.addWidget(self.progress_slider)
+
+        # Playback controls
+        controls_layout = QHBoxLayout()
+        controls_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.play_button = QPushButton()
+        self.play_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
+        self.play_button.clicked.connect(self.play_pause)
+
+        self.stop_button = QPushButton()
+        self.stop_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaStop))
+        self.stop_button.clicked.connect(self.stop)
+
+        self.backward_button = QPushButton()
+        self.backward_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaSeekBackward))
+        self.backward_button.clicked.connect(self.backward)
+
+        self.forward_button = QPushButton()
+        self.forward_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaSeekForward))
+        self.forward_button.clicked.connect(self.forward)
+
+        self.replay_button = QPushButton()
+        self.replay_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload))
+        self.replay_button.clicked.connect(self.replay)
+
+        controls_layout.addWidget(self.backward_button)
+        controls_layout.addWidget(self.stop_button)
+        controls_layout.addWidget(self.play_button)
+        controls_layout.addWidget(self.forward_button)
+        controls_layout.addWidget(self.replay_button)
+
+        right_layout.addLayout(controls_layout)
+
+        main_layout.addWidget(right_panel, 4)  # 4/6 of the total width
+
+        self.setLayout(main_layout)
+
+        # Connect media player signals
+        self.media_player.durationChanged.connect(self.update_duration)
+        self.media_player.positionChanged.connect(self.update_position)
+
+    def load_data(self):
+        day = self.day_combo.currentText().lower()[:3]  # Get first 3 letters of the day
+        file_path = f'london_tube_crowding_data/london_tube_crowding_{day}.json'
+
+        try:
+            with open(file_path, 'r') as file:
+                data = json.load(file)
+
+            self.graph = nx.Graph()
+            for station, connections in data.items():
+                for connected_station, details in connections.items():
+                    self.graph.add_edge(station, connected_station,
+                                        weight=details['crowding'],
+                                        line=details['line'])
+
+            print(
+                f"Loaded data for {day.capitalize()}. Graph has {self.graph.number_of_nodes()} nodes and {self.graph.number_of_edges()} edges.")
+        except FileNotFoundError:
+            print(f"Error: File not found - {file_path}")
+            QMessageBox.critical(self, "Error", f"Data file for {day.capitalize()} not found.")
+        except json.JSONDecodeError:
+            print(f"Error: Invalid JSON in file - {file_path}")
+            QMessageBox.critical(self, "Error", f"Invalid data in file for {day.capitalize()}.")
+
+    def search_path(self):
+        if self.graph is None:
+            QMessageBox.warning(self, "Warning", "Please select a day to load data first.")
+            return
+
+        start = self.start_station_combo.currentText()
+        end = self.end_station_combo.currentText()
+
+        if start == end:
+            QMessageBox.warning(self, "Warning", "Start and end stations are the same.")
+            return
+
+        try:
+            self.paths = list(nx.all_simple_paths(self.graph, start, end))
+            path_count = len(self.paths)
+            self.path_count_label.setText(f"Paths found: {path_count}")
+            print(f"Found {path_count} paths from {start} to {end}")
+        except nx.NetworkXNoPath:
+            self.path_count_label.setText("Paths found: 0")
+            QMessageBox.warning(self, "No Path", "No path found between the selected stations.")
+
+    def visualize(self):
+        if not self.paths:
+            QMessageBox.warning(self, "Warning", "Please search for paths first.")
+            return
+
+        algorithm = self.algorithm_combo.currentText()
+        start = self.start_station_combo.currentText()
+        end = self.end_station_combo.currentText()
+
+        if algorithm in ["Breadth-First Search (BFS)", "Depth-First Search (DFS)"]:
+            # For BFS and DFS, use any path found
+            path = self.paths[0]
+        elif algorithm in ["Dijkstra's Algorithm", "A* Algorithm"]:
+            # For Dijkstra's and A*, find the least congested path
+            path = self.find_least_congested_path(start, end, algorithm)
+        else:
+            QMessageBox.warning(self, "Warning", "Invalid algorithm selected.")
+            return
+
+        # Here you would typically start the visualization based on the selected options
+        # For now, we'll just print the path
+        print(f"Visualizing path using {algorithm}: {' -> '.join(path)}")
+
+        # TODO: Implement the actual visualization logic here
+
+    def find_least_congested_path(self, start, end, algorithm):
+        if algorithm == "Dijkstra's Algorithm":
+            path = nx.dijkstra_path(self.graph, start, end, weight='weight')
+        else:  # A* Algorithm
+            path = nx.astar_path(self.graph, start, end, weight='weight')
+        return path
+
+    # def get_station_names(self):
+    #     # This method should return a list of the 37 unique station names
+    #     # For now, we'll return a placeholder list
+    #     return [
+    #         "Harrow & Wealdstone", "Elephant & Castle", "Epping", "West Ruislip", "Hainault",
+    #         "Ealing Broadway", "Woodford", "Edgware Road (Circle Line)", "Hammersmith (H&C Line)",
+    #         "Upminster", "Richmond", "Wimbledon", "Kensington (Olympia)", "Barking", "Stratford",
+    #         "Stanmore", "Aldgate", "Amersham", "Chesham", "Uxbridge", "Watford", "High Barnet",
+    #         "Morden", "Edgware", "Mill Hill East", "Battersea Power Station", "Cockfosters",
+    #         "Heathrow Terminal 5", "Heathrow Terminal 4", "Walthamstow Central", "Brixton",
+    #         "Bank", "Waterloo"
+    #     ]
     #
+
+    def get_station_names(self):
+        # Read station names from the data file
+        day = self.day_combo.currentText().lower()[:3]
+        file_path = f'london_tube_crowding_data/london_tube_crowding_{day}.json'
+
+        try:
+            with open(file_path, 'r') as file:
+                data = json.load(file)
+            return list(data.keys())
+        except FileNotFoundError:
+            print(f"Error: File not found - {file_path}")
+            return []
+        except json.JSONDecodeError:
+            print(f"Error: Invalid JSON in file - {file_path}")
+            return []
+    def play_pause(self):
+        if self.media_player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+            self.media_player.pause()
+            self.play_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
+        else:
+            self.media_player.play()
+            self.play_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPause))
+
+    def stop(self):
+        self.media_player.stop()
+        self.play_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
+
+    def backward(self):
+        new_position = max(0, self.media_player.position() - 5000)  # Go back 5 seconds
+        self.media_player.setPosition(new_position)
+
+    def forward(self):
+        new_position = min(self.media_player.duration(), self.media_player.position() + 5000)  # Go forward 5 seconds
+        self.media_player.setPosition(new_position)
+
+    def replay(self):
+        self.media_player.setPosition(0)
+        self.media_player.play()
+        self.play_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPause))
+
+    def update_duration(self, duration):
+        self.progress_slider.setRange(0, duration)
+
+    def update_position(self, position):
+        if not self.progress_slider.isSliderDown():
+            self.progress_slider.setValue(position)
+
+    def set_position(self, position):
+        self.media_player.setPosition(position)
 def main():
     app = QApplication(sys.argv)
 
