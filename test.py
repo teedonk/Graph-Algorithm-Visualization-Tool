@@ -1,9 +1,9 @@
 import sys
 import random
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QMenuBar, QMenu,
+from PyQt6.QtWidgets import (QApplication, QProgressDialog, QMainWindow, QLabel, QVBoxLayout, QWidget, QMenuBar, QMenu,
                              QPushButton, QStyle, QSlider, QMessageBox, QSpinBox, QHBoxLayout, QComboBox, QToolTip, QStackedWidget)
 from PyQt6.QtGui import QAction, QFont, QIcon, QPixmap
-from PyQt6.QtCore import Qt, QUrl, QByteArray
+from PyQt6.QtCore import Qt, QUrl, QTimer, QByteArray
 from PyQt6.QtMultimedia import QMediaPlayer
 from PyQt6.QtMultimediaWidgets import QVideoWidget
 import tempfile
@@ -1125,12 +1125,91 @@ class RealWorldVisualizationPage(QWidget):
             shutil.rmtree(self.temp_dir, ignore_errors=True)
         super().closeEvent(event)
 
+class LondonTubeScene(Scene):
+    def __init__(self, graph, path, algorithm, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.graph = graph
+        self.path = path
+        self.algorithm = algorithm
+
+    def construct(self):
+        # Create Manim graph from NetworkX graph
+        vertices = list(self.graph.nodes())
+        edges = list(self.graph.edges(data=True))
+
+        g = Graph(
+            vertices,
+            [(e[0], e[1]) for e in edges],
+            layout="spring",
+            layout_scale=4,
+            vertex_config={"radius": 0.3},
+            edge_config={"stroke_width": 2}
+        )
+
+        # Add station labels
+        labels = {}
+        for vertex in vertices:
+            label = Text(vertex[:3], font_size=20)  # Use first 3 letters of station name
+            label.next_to(g[vertex], UP * 0.1)
+            labels[vertex] = label
+
+        self.add(g, *labels.values())
+
+        # Add title
+        title = Text(f"{self.algorithm}", font_size=36)
+        title.to_edge(UP)
+        self.add(title)
+
+        # Highlight path
+        path_edges = list(zip(self.path[:-1], self.path[1:]))
+        total_weight = 0
+
+        for i, (start, end) in enumerate(path_edges):
+            # Highlight edge
+            edge = g.edges[(start, end)]
+            self.play(edge.animate.set_color(RED), run_time=0.5)
+
+            # Highlight nodes
+            self.play(g[start].animate.set_color(RED), g[end].animate.set_color(RED), run_time=0.5)
+
+            # Display line information
+            line_info = self.graph[start][end]['line']
+            line_text = Text(f"Line: {line_info}", font_size=24)
+            line_text.to_edge(DOWN)
+            self.play(FadeIn(line_text))
+
+            # Display weight for pathfinding algorithms
+            if "Dijkstra" in self.algorithm or "A*" in self.algorithm:
+                weight = self.graph[start][end]['weight']
+                total_weight += weight
+                weight_text = Text(f"Crowding: {weight}", font_size=24)
+                weight_text.next_to(line_text, UP)
+                self.play(FadeIn(weight_text))
+
+                total_weight_text = Text(f"Total Crowding: {total_weight}", font_size=24)
+                total_weight_text.to_edge(RIGHT)
+                self.play(FadeIn(total_weight_text))
+
+            # Pause to allow viewers to see the current state
+            self.wait(1)
+
+            # Clean up texts for next iteration
+            self.play(FadeOut(line_text))
+            if "Dijkstra" in self.algorithm or "A*" in self.algorithm:
+                self.play(FadeOut(weight_text))
+                self.play(FadeOut(total_weight_text))
+
+        # Final state
+        self.wait(2)
+
 class LondonTubeVisualizationPage(QWidget):
     def __init__(self, parent):
         super().__init__()
         self.parent = parent
         self.graph = None
         self.paths = []
+        self.temp_dir = None
+        self.loading_dialog = None
         self.init_ui()
 
     def init_ui(self):
@@ -1289,6 +1368,21 @@ class LondonTubeVisualizationPage(QWidget):
             self.path_count_label.setText("Paths found: 0")
             QMessageBox.warning(self, "No Path", "No path found between the selected stations.")
 
+    def show_loading_indicator(self):
+        self.loading_dialog = QProgressDialog("Generating visualization...", None, 0, 0, self)
+        self.loading_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        self.loading_dialog.setWindowTitle("Please Wait")
+        self.loading_dialog.setCancelButton(None)
+        self.loading_dialog.setAutoClose(True)
+        self.loading_dialog.setMinimumDuration(0)
+        self.loading_dialog.show()
+        QTimer.singleShot(200, lambda: self.loading_dialog.setValue(0))
+
+    def hide_loading_indicator(self):
+        if self.loading_dialog:
+            self.loading_dialog.close()
+            self.loading_dialog = None
+
     def visualize(self):
         if not self.paths:
             QMessageBox.warning(self, "Warning", "Please search for paths first.")
@@ -1308,11 +1402,48 @@ class LondonTubeVisualizationPage(QWidget):
             QMessageBox.warning(self, "Warning", "Invalid algorithm selected.")
             return
 
-        # Here you would typically start the visualization based on the selected options
-        # For now, we'll just print the path
-        print(f"Visualizing path using {algorithm}: {' -> '.join(path)}")
+        # Show loading indicator
+        self.show_loading_indicator()
 
-        # TODO: Implement the actual visualization logic here
+        # Use QTimer to allow the loading indicator to appear before starting the heavy computation
+        QTimer.singleShot(100, lambda: self.generate_visualization(algorithm, path))
+
+    def generate_visualization(self, algorithm, path):
+        try:
+            # Create temporary directory for video
+            if self.temp_dir:
+                shutil.rmtree(self.temp_dir, ignore_errors=True)
+            self.temp_dir = tempfile.mkdtemp()
+
+            # Configure Manim
+            config.media_width = "854px"
+            config.media_height = "480px"
+            config.output_file = f"{self.temp_dir}/london_tube_visualization"
+
+            # Create and render the scene
+            scene = LondonTubeScene(self.graph, path, algorithm)
+            scene.render()
+
+            # Get the path of the rendered video
+            video_path = f"{self.temp_dir}/london_tube_visualization.mp4"
+
+            # Play the video
+            self.media_player.setSource(QUrl.fromLocalFile(video_path))
+            self.play_pause()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"An error occurred during visualization: {str(e)}")
+
+        finally:
+            # Hide loading indicator
+            self.hide_loading_indicator()
+
+    def closeEvent(self, event):
+        # Clean up temporary directory
+        if self.temp_dir:
+            shutil.rmtree(self.temp_dir, ignore_errors=True)
+        super().closeEvent(event)
+
 
     def find_least_congested_path(self, start, end, algorithm):
         if algorithm == "Dijkstra's Algorithm":
