@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graph Visualization Tool Help</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1, h2 { color: #2c3e50; }
+        h2 { border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        code { background-color: #f4f4f4; padding: 2px 4px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>Graph Visualization Tool Help</h1>
+
+    <h2>Table of Contents</h2>
+    <ul>
+        <li><a href="#introduction">Introduction</a></li>
+        <li><a href="#main-options">Main Options</a></li>
+        <li><a href="#graph-algorithms">Graph Algorithms</a></li>
+        <li><a href="#basic-examples">Basic Examples</a></li>
+        <li><a href="#real-life-scenarios">Real-Life Scenarios</a></li>
+        <li><a href="#datasets">Datasets and Data Processing</a></li>
+    </ul>
+
+    <h2 id="introduction">Introduction</h2>
+    <p>The Graph Visualization Tool is an interactive application designed to help users understand and visualize various graph algorithms. It provides both basic examples and real-life scenarios to demonstrate the application of these algorithms in practical situations.</p>
+
+    <h2 id="main-options">Main Options</h2>
+    <ul>
+        <li><strong>Built-in Examples:</strong> Pre-configured graph scenarios to demonstrate algorithm behavior.</li>
+        <li><strong>Create Example:</strong> Allows users to create custom graph scenarios.</li>
+        <li><strong>Basic Example:</strong> Simplified graph scenarios for learning fundamental concepts.</li>
+        <li><strong>Real World Scenario:</strong> Applies graph algorithms to real-world problems.</li>
+    </ul>
+
+    <h2 id="graph-algorithms">Graph Algorithms</h2>
+    <ul>
+        <li><strong>Breadth-First Search (BFS):</strong> Explores nodes level by level, useful for finding shortest paths in unweighted graphs.</li>
+        <li><strong>Depth-First Search (DFS):</strong> Explores as far as possible along each branch before backtracking.</li>
+        <li><strong>Dijkstra's Algorithm:</strong> Finds the shortest path between nodes in a weighted graph.</li>
+        <li><strong>A* Algorithm:</strong> An informed search algorithm that uses heuristics to find the optimal path more efficiently than Dijkstra's.</li>
+    </ul>
+
+    <h2 id="basic-examples">Basic Examples</h2>
+    <p>Basic examples are generated to demonstrate algorithm behavior on different graph types:</p>
+    <ul>
+        <li><strong>Complete Graph:</strong> Every node is connected to every other node.</li>
+        <li><strong>Linear Graph:</strong> Nodes are connected in a single line.</li>
+        <li><strong>Star Graph:</strong> One central node connected to all other nodes.</li>
+        <li><strong>Tree Graph:</strong> Hierarchical structure with no cycles.</li>
+        <li><strong>Directed Acyclic Graph (DAG):</strong> Directed graph with no cycles.</li>
+    </ul>
+
+    <h2 id="real-life-scenarios">Real-Life Scenarios</h2>
+    <h3>Finding the Least Congested Path in London Tube</h3>
+    <p>This scenario applies graph algorithms to find the least congested path in the London Underground network. It uses real-time crowding data to determine the optimal route.</p>
+
+    <h3>The Traveling Salesman Problem</h3>
+    <p>This classic optimization problem demonstrates how graph algorithms can be used to find the shortest possible route that visits each city exactly once and returns to the origin city.</p>
+
+    <h2 id="datasets">Datasets and Data Processing</h2>
+    <h3>London Tube Data</h3>
+    <p>The dataset for the London Tube scenario was obtained from the Transport for London (TfL) API:</p>
+    <ul>
+        <li>Crowding information: <a href="https://api.tfl.gov.uk/crowding/940GZZLU{StationCode}/Crowding">TfL Crowding API</a></li>
+        <li>Station information: <a href="https://api.tfl.gov.uk/StopPoint/Mode/tube">TfL StopPoint API</a></li>
+    </ul>
+    <p>Crowding information was normalized to create consistent edge weights in the graph. NAPTAN (National Public Transport Access Node) codes for each station were aligned with the crowding information to create a comprehensive graph representation of the London Tube network.</p>
+
+    <h3>Traveling Salesman Data</h3>
+    <p>The Traveling Salesman Problem uses a dataset of coordinates (latitude and longitude) stored in 'tiny.csv'. These coordinates are converted to positions in the visualization. Each node is assigned a random city name from a predefined list when the program runs, providing variety in the visualization.</p>
+
+    <h3>Basic Example Data</h3>
+    <p>Basic examples are generated programmatically based on the selected graph type. Nodes and edges are created according to the characteristics of each graph type, with random weights assigned to edges for weighted graph algorithms.</p>
+</body>
+</html>

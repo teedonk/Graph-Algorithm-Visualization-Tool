@@ -20,6 +20,8 @@ import matplotlib.animation as animation
 import json
 import multiprocessing
 from least_congested import *
+from Traveling_salesman import *
+from help import *
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 class GraphVisualizationApp(QMainWindow):
@@ -50,13 +52,21 @@ class GraphVisualizationApp(QMainWindow):
         self.central_widget.addWidget(self.real_world_scenario_page)
         self.central_widget.addWidget(self.real_world_visualization_page)
         self.central_widget.addWidget(self.london_tube_visualization_page)
+        self.tsp_visualization_page = TSPVisualizationPage(self)
+        self.central_widget.addWidget(self.tsp_visualization_page)
 
         self.create_menu()
+
+
     def show_error_message(self, title, message):
         QMessageBox.critical(self, title, message)
 
     def show_london_tube_visualization_page(self):
         self.central_widget.setCurrentWidget(self.london_tube_visualization_page)
+
+    def show_tsp_visualization_page(self):
+        self.central_widget.setCurrentWidget(self.tsp_visualization_page)
+
     def run_algorithm_visualization(self, num_nodes, start_node, end_node, algorithm, graph_type):
         try:
             logger.info(
@@ -188,6 +198,10 @@ class GraphVisualizationApp(QMainWindow):
         help_action.triggered.connect(self.show_help)
         menubar.addAction(help_action)
 
+        exit_action = QAction("Exit", self)
+        exit_action.setShortcut('Ctrl+Q')
+        exit_action.triggered.connect(self.exit_application)
+        menubar.addAction(exit_action)
     def create_home_page(self):
         widget = QWidget()
         layout = QVBoxLayout()
@@ -198,13 +212,15 @@ class GraphVisualizationApp(QMainWindow):
         create_button = self.create_main_button("Create example", "#FF6600")
         create_button.clicked.connect(self.show_create_example)
 
+        exit_button = self.create_exit_button()
+
         layout.addWidget(built_in_button)
         layout.addWidget(create_button)
+        layout.addWidget(exit_button)
 
         widget.setLayout(layout)
         widget.setStyleSheet("background-color: #2D2D2D;")
         return widget
-
     def create_main_button(self, text, color):
         button = QPushButton(text)
         button.setFont(QFont("Arial", 14, QFont.Weight.Bold))
@@ -248,12 +264,34 @@ class GraphVisualizationApp(QMainWindow):
     def show_help(self):
         print("Help clicked")
 
+    def exit_application(self):
+        QApplication.quit()
+
     def go_back(self):
         current_index = self.central_widget.currentIndex()
         if current_index > 0:
             self.central_widget.setCurrentIndex(current_index - 1)
 
+    def show_help(self):
+        self.help_widget = HelpWidget()
+        self.help_widget.show()
 
+    def create_exit_button(self):
+        exit_button = QPushButton("Exit")
+        exit_button.setFont(QFont("Arial", 12))
+        exit_button.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c;
+                color: white;
+                padding: 5px 15px;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+        """)
+        exit_button.clicked.connect(self.exit_application)
+        return exit_button
 class BuiltInExamplesWidget(QWidget):
     def __init__(self, parent):
         super().__init__()
@@ -283,9 +321,26 @@ class BuiltInExamplesWidget(QWidget):
 
         layout.addLayout(options_layout)
 
+        # Update the Back button style
         back_button = QPushButton("Back")
+        back_button.setFont(QFont("Arial", 12))
+        back_button.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c;
+                color: white;
+                padding: 5px 15px;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+        """)
         back_button.clicked.connect(self.parent.go_back)
         layout.addWidget(back_button)
+
+        # Add exit button
+        exit_button = self.parent.create_exit_button()
+        layout.addWidget(exit_button)
 
         self.setLayout(layout)
         self.setStyleSheet("background-color: #2D2D2D;")
@@ -314,7 +369,6 @@ class BuiltInExamplesWidget(QWidget):
 
     def show_real_world_scenarios(self):
         self.parent.show_real_world_scenarios()
-
 
 class RealWorldScenarioWidget(QWidget):
     def __init__(self, parent):
@@ -383,6 +437,11 @@ class RealWorldScenarioWidget(QWidget):
         self.setLayout(layout)
         self.setStyleSheet("background-color: #2D2D2D;")
 
+        exit_button = self.parent.create_exit_button()
+        layout.addWidget(exit_button)
+
+        self.setLayout(layout)
+
     def visualize(self):
         scenario = self.scenario_combo.currentText()
         algorithm = self.algorithm_combo.currentText()
@@ -390,12 +449,16 @@ class RealWorldScenarioWidget(QWidget):
             self.parent.london_tube_visualization_page.algorithm_combo.setCurrentText(algorithm)
             self.parent.central_widget.setCurrentWidget(self.parent.london_tube_visualization_page)
         elif scenario == "The Traveling Salesman Problem":
-            self.parent.real_world_visualization_page.set_scenario_and_algorithm(scenario, algorithm)
-            self.parent.show_real_world_visualization_page()
-
+            self.parent.tsp_visualization_page.algorithm_combo.setCurrentText(algorithm)
+            self.parent.show_tsp_visualization_page()
+        else:
+            self.parent.show_error_message("Visualization Error", "No valid scenario selected.")
 
     def go_back(self):
         self.parent.show_built_in_examples()
+
+
+
 class AlgorithmSelectionWidget(QWidget):
     def __init__(self, parent):
         super().__init__()
@@ -490,6 +553,11 @@ class AlgorithmSelectionWidget(QWidget):
         self.setLayout(layout)
         self.setStyleSheet("background-color: #2D2D2D;")
 
+        exit_button = self.parent.create_exit_button()
+        layout.addWidget(exit_button)
+
+        self.setLayout(layout)
+
     def toggle_traversal_options(self):
         self.traversal_combo.setVisible(not self.traversal_combo.isVisible())
         self.pathfinding_combo.hide()
@@ -551,6 +619,10 @@ class CreateExampleWidget(QWidget):
         self.setLayout(layout)
         self.setStyleSheet("background-color: #2D2D2D;")
 
+        exit_button = self.parent.create_exit_button()
+        layout.addWidget(exit_button)
+
+        self.setLayout(layout)
 
 
 class GraphVisualizationScene(Scene):
@@ -823,6 +895,7 @@ class VisualizationPage(QWidget):
         self.media_player.durationChanged.connect(self.update_duration)
         self.media_player.positionChanged.connect(self.update_position)
 
+
     def update_node_options(self, num_nodes):
         self.start_node_combo.clear()
         self.end_node_combo.clear()
@@ -999,6 +1072,11 @@ class RealWorldVisualizationPage(QWidget):
         controls_layout.addWidget(self.stop_button)
 
         layout.addLayout(controls_layout)
+
+        self.setLayout(layout)
+
+        exit_button = self.parent.create_exit_button()
+        layout.addWidget(exit_button)
 
         self.setLayout(layout)
 

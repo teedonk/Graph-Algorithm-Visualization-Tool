@@ -1,0 +1,304 @@
+{
+  "Harrow & Wealdstone Underground Station": {
+    "Elephant & Castle Underground Station": {
+      "line": "Bakerloo",
+      "crowding": 5
+    }
+  },
+  "Elephant & Castle Underground Station": {
+    "Harrow & Wealdstone Underground Station": {
+      "line": "Bakerloo",
+      "crowding": 5
+    }
+  },
+  "Epping Underground Station": {
+    "West Ruislip Underground Station": {
+      "line": "Central",
+      "crowding": 5
+    },
+    "Ealing Broadway Underground Station": {
+      "line": "Central",
+      "crowding": 5
+    }
+  },
+  "West Ruislip Underground Station": {
+    "Epping Underground Station": {
+      "line": "Central",
+      "crowding": 5
+    },
+    "Hainault Underground Station": {
+      "line": "Central",
+      "crowding": 5
+    }
+  },
+  "Hainault Underground Station": {
+    "West Ruislip Underground Station": {
+      "line": "Central",
+      "crowding": 5
+    },
+    "Ealing Broadway Underground Station": {
+      "line": "Central",
+      "crowding": 5
+    }
+  },
+  "Ealing Broadway Underground Station": {
+    "Epping Underground Station": {
+      "line": "Central",
+      "crowding": 5
+    },
+    "Hainault Underground Station": {
+      "line": "Central",
+      "crowding": 5
+    },
+    "Upminster Underground Station": {
+      "line": "District",
+      "crowding": 5
+    }
+  },
+  "Woodford Underground Station": {
+    "Hainault Underground Station": {
+      "line": "Central",
+      "crowding": 5
+    }
+  },
+  "Edgware Road (Circle Line) Underground Station": {
+    "Hammersmith (H&C Line) Underground Station": {
+      "line": "Circle",
+      "crowding": 5
+    },
+    "Ealing Broadway Underground Station": {
+      "line": "District",
+      "crowding": 5
+    },
+    "Richmond Underground Station": {
+      "line": "District",
+      "crowding": 5
+    },
+    "Wimbledon Underground Station": {
+      "line": "District",
+      "crowding": 5
+    },
+    "Kensington (Olympia) Underground Station": {
+      "line": "District",
+      "crowding": 5
+    }
+  },
+  "Hammersmith (H&C Line) Underground Station": {
+    "Edgware Road (Circle Line) Underground Station": {
+      "line": "Circle",
+      "crowding": 5
+    },
+    "Barking Underground Station": {
+      "line": "Hammersmith & City",
+      "crowding": 5
+    }
+  },
+  "Upminster Underground Station": {
+    "Ealing Broadway Underground Station": {
+      "line": "District",
+      "crowding": 5
+    },
+    "Richmond Underground Station": {
+      "line": "District",
+      "crowding": 5
+    },
+    "Wimbledon Underground Station": {
+      "line": "District",
+      "crowding": 5
+    }
+  },
+  "Richmond Underground Station": {
+    "Upminster Underground Station": {
+      "line": "District",
+      "crowding": 5
+    },
+    "Edgware Road (Circle Line) Underground Station": {
+      "line": "District",
+      "crowding": 5
+    }
+  },
+  "Wimbledon Underground Station": {
+    "Upminster Underground Station": {
+      "line": "District",
+      "crowding": 5
+    },
+    "Edgware Road (Circle Line) Underground Station": {
+      "line": "District",
+      "crowding": 5
+    }
+  },
+  "Kensington (Olympia) Underground Station": {
+    "Upminster Underground Station": {
+      "line": "District",
+      "crowding": 5
+    },
+    "Edgware Road (Circle Line) Underground Station": {
+      "line": "District",
+      "crowding": 5
+    }
+  },
+  "Barking Underground Station": {
+    "Hammersmith (H&C Line) Underground Station": {
+      "line": "Hammersmith & City",
+      "crowding": 5
+    }
+  },
+  "Stratford Underground Station": {
+    "Stanmore Underground Station": {
+      "line": "Jubilee",
+      "crowding": 5
+    }
+  },
+  "Stanmore Underground Station": {
+    "Stratford Underground Station": {
+      "line": "Jubilee",
+      "crowding": 5
+    }
+  },
+  "Aldgate Underground Station": {
+    "Amersham Underground Station": {
+      "line": "Metropolitan",
+      "crowding": 5
+    },
+    "Chesham Underground Station": {
+      "line": "Metropolitan",
+      "crowding": 5
+    },
+    "Uxbridge Underground Station": {
+      "line": "Metropolitan",
+      "crowding": 5
+    },
+    "Watford Underground Station": {
+      "line": "Metropolitan",
+      "crowding": 5
+    }
+  },
+  "Amersham Underground Station": {
+    "Aldgate Underground Station": {
+      "line": "Metropolitan",
+      "crowding": 5
+    }
+  },
+  "Chesham Underground Station": {
+    "Aldgate Underground Station": {
+      "line": "Metropolitan",
+      "crowding": 5
+    }
+  },
+  "Uxbridge Underground Station": {
+    "Aldgate Underground Station": {
+      "line": "Metropolitan",
+      "crowding": 5
+    },
+    "Cockfosters Underground Station": {
+      "line": "Piccadilly",
+      "crowding": 5
+    }
+  },
+  "Watford Underground Station": {
+    "Aldgate Underground Station": {
+      "line": "Metropolitan",
+      "crowding": 5
+    }
+  },
+  "High Barnet Underground Station": {
+    "Morden Underground Station": {
+      "line": "Northern",
+      "crowding": 5
+    },
+    "Battersea Power Station Underground Station": {
+      "line": "Northern",
+      "crowding": 5
+    }
+  },
+  "Morden Underground Station": {
+    "High Barnet Underground Station": {
+      "line": "Northern",
+      "crowding": 5
+    },
+    "Edgware Underground Station": {
+      "line": "Northern",
+      "crowding": 5
+    },
+    "Mill Hill East Underground Station": {
+      "line": "Northern",
+      "crowding": 5
+    }
+  },
+  "Edgware Underground Station": {
+    "Morden Underground Station": {
+      "line": "Northern",
+      "crowding": 5
+    },
+    "Battersea Power Station Underground Station": {
+      "line": "Northern",
+      "crowding": 5
+    }
+  },
+  "Mill Hill East Underground Station": {
+    "Morden Underground Station": {
+      "line": "Northern",
+      "crowding": 5
+    }
+  },
+  "Battersea Power Station Underground Station": {
+    "High Barnet Underground Station": {
+      "line": "Northern",
+      "crowding": 5
+    },
+    "Edgware Underground Station": {
+      "line": "Northern",
+      "crowding": 5
+    }
+  },
+  "Cockfosters Underground Station": {
+    "Uxbridge Underground Station": {
+      "line": "Piccadilly",
+      "crowding": 5
+    },
+    "Heathrow Terminal 5 Underground Station": {
+      "line": "Piccadilly",
+      "crowding": 5
+    },
+    "Heathrow Terminal 4 Underground Station": {
+      "line": "Piccadilly",
+      "crowding": 5
+    }
+  },
+  "Heathrow Terminal 5 Underground Station": {
+    "Cockfosters Underground Station": {
+      "line": "Piccadilly",
+      "crowding": 5
+    }
+  },
+  "Heathrow Terminal 4 Underground Station": {
+    "Cockfosters Underground Station": {
+      "line": "Piccadilly",
+      "crowding": 5
+    }
+  },
+  "Walthamstow Central Underground Station": {
+    "Brixton Underground Station": {
+      "line": "Victoria",
+      "crowding": 5
+    }
+  },
+  "Brixton Underground Station": {
+    "Walthamstow Central Underground Station": {
+      "line": "Victoria",
+      "crowding": 5
+    }
+  },
+  "Bank Underground Station": {
+    "Waterloo Underground Station": {
+      "line": "Waterloo & City",
+      "crowding": 5
+    }
+  },
+  "Waterloo Underground Station": {
+    "Bank Underground Station": {
+      "line": "Waterloo & City",
+      "crowding": 5
+    }
+  }
+}

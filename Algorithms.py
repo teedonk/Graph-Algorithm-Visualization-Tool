@@ -1,186 +1,71 @@
+from manim import *
 import networkx as nx
-import matplotlib.pyplot as plt
-from collections import deque
-import heapq
-import random
+import json
 
-# Create a sample graph
-G = nx.Graph()
-edges = [
-    ('A', 'B', 4), ('A', 'C', 2), ('B', 'D', 3), ('B', 'E', 1),
-    ('C', 'D', 5), ('C', 'F', 6), ('D', 'E', 2), ('E', 'F', 4)
-]
-G.add_weighted_edges_from(edges)
+# Load dataset
+with open("london_tube_crowding_data/london_tube_crowding_sat.json") as file:
+    data = json.load(file)
 
-# Position nodes for consistent layout
-pos = nx.spring_layout(G)
+# Create graph
+graph = nx.Graph()
+for station, connections in data.items():
+    for connected_station, details in connections.items():
+        graph.add_edge(station, connected_station, weight=details["crowding"], line=details["line"])
 
+# Define BFS function
+def bfs_path(graph, start, end):
+    try:
+        return nx.shortest_path(graph, source=start, target=end)
+    except nx.NetworkXNoPath:
+        return None
 
-# Breadth-First Search
-def bfs(graph, start, goal):
-    queue = deque([[start]])
-    visited = set([start])
+# Find path using BFS between Kensington (Olympia) and Woodford
+start_station = "Kensington (Olympia) Underground Station"
+end_station = "Woodford Underground Station"
+path = bfs_path(graph, start_station, end_station)
 
-    while queue:
-        path = queue.popleft()
-        node = path[-1]
+# Manim Scene
+class LondonTubeGraphScene(Scene):
+    def __init__(self, graph, path, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.graph = graph
+        self.path = path
 
-        if node == goal:
-            return path
+    def construct(self):
+        # Create Graph for visualization
+        vertices = list(self.graph.nodes())
+        edges = list(self.graph.edges())
 
-        for neighbor in graph[node]:
-            if neighbor not in visited:
-                visited.add(neighbor)
-                queue.append(path + [neighbor])
+        # Create a Manim Graph
+        g = Graph(
+            vertices,
+            [(e[0], e[1]) for e in edges],
+            layout="spring",  # Automatically layout nodes
+            layout_scale=3,   # Scale the layout to fit
+            vertex_config={"fill_color": BLUE},
+            edge_config={"stroke_color": GRAY}
+        )
 
-    return None
+        # Highlight the BFS path
+        if self.path:
+            for i, node in enumerate(self.path):
+                self.play(g[node].animate.set_fill(RED), run_time=0.5)
 
-# Depth-First Search
-def dfs(graph, start, goal, path=None):
-    if path is None:
-        path = [start]
+                # Highlight edges in the path
+                if i > 0:
+                    prev_node = self.path[i - 1]
+                    if self.graph.has_edge(prev_node, node):
+                        edge = g.edges[(prev_node, node)]
+                        self.play(edge.animate.set_color(RED), run_time=0.5)
 
-    if start == goal:
-        return path
+        # Add the graph to the scene
+        self.add(g)
+        self.wait(2)
 
-    for neighbor in graph[start]:
-        if neighbor not in path:
-            new_path = dfs(graph, neighbor, goal, path + [neighbor])
-            if new_path:
-                return new_path
-
-    return None
-
-
-# Dijkstra's Algorithm
-def dijkstra(graph, start, goal):
-    distances = {node: float('inf') for node in graph}
-    distances[start] = 0
-    pq = [(0, start)]
-    previous = {node: None for node in graph}
-
-    while pq:
-        current_distance, current_node = heapq.heappop(pq)
-
-        if current_node == goal:
-            path = []
-            while current_node:
-                path.append(current_node)
-                current_node = previous[current_node]
-            return path[::-1]
-
-        if current_distance > distances[current_node]:
-            continue
-
-        for neighbor, weight in graph[current_node].items():
-            distance = current_distance + weight['weight']
-            if distance < distances[neighbor]:
-                distances[neighbor] = distance
-                previous[neighbor] = current_node
-                heapq.heappush(pq, (distance, neighbor))
-
-    return None
-
-
-# A* Algorithm
-def heuristic(a, b):
-    # Using Euclidean distance as a simple heuristic
-    return ((pos[a][0] - pos[b][0]) ** 2 + (pos[a][1] - pos[b][1]) ** 2) ** 0.5
-
-
-def a_star(graph, start, goal):
-    open_set = []
-    heapq.heappush(open_set, (0, start))
-    came_from = {}
-    g_score = {node: float('inf') for node in graph}
-    g_score[start] = 0
-    f_score = {node: float('inf') for node in graph}
-    f_score[start] = heuristic(start, goal)
-
-    while open_set:
-        current = heapq.heappop(open_set)[1]
-
-        if current == goal:
-            path = []
-            while current in came_from:
-                path.append(current)
-                current = came_from[current]
-            path.append(start)
-            return path[::-1]
-
-        for neighbor, weight in graph[current].items():
-            tentative_g_score = g_score[current] + weight['weight']
-            if tentative_g_score < g_score[neighbor]:
-                came_from[neighbor] = current
-                g_score[neighbor] = tentative_g_score
-                f_score[neighbor] = g_score[neighbor] + heuristic(neighbor, goal)
-                heapq.heappush(open_set, (f_score[neighbor], neighbor))
-
-    return None
-
-
-
-# def generate_graph(num_nodes):
-#     nodes = [chr(i) for i in range(65, 65 + num_nodes)]
-#     graph = {}
-#
-#     # Add all nodes to the graph
-#     for node in nodes:
-#         graph[node] = {}
-#
-#     # Ensure the graph is connected
-#     for i in range(1, len(nodes)):
-#         weight = random.randint(1, 10)
-#         graph[nodes[i-1]][nodes[i]] = {'weight': weight}
-#         graph[nodes[i]][nodes[i-1]] = {'weight': weight}
-#
-#     # Add random additional edges
-#     for _ in range(num_nodes):
-#         node1, node2 = random.sample(nodes, 2)
-#         if node1 != node2 and node2 not in graph[node1]:
-#             weight = random.randint(1, 10)
-#             graph[node1][node2] = {'weight': weight}
-#             graph[node2][node1] = {'weight': weight}
-#
-#     return graph
-
-
-# Function to visualize path
-
-# def visualize_path(G, pos, path, algorithm_name):
-#     plt.figure(figsize=(12, 8))
-#     nx.draw(G, pos, with_labels=True, node_color='lightblue', node_size=500, font_size=16, font_weight='bold')
-#     edge_labels = nx.get_edge_attributes(G, 'weight')
-#     nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
-#
-#     if path:
-#         path_edges = list(zip(path, path[1:]))
-#         nx.draw_networkx_edges(G, pos, edgelist=path_edges, edge_color='r', width=2)
-#
-#     start_node = path[0] if path else ''
-#     goal_node = path[-1] if path else ''
-#     plt.title(f"{algorithm_name} - Path from {start_node} to {goal_node}", fontsize=20)
-#     plt.axis('off')
-#     plt.show()
-
-# def generate_graph(num_nodes):
-#     nodes = [chr(i) for i in range(65, 65 + num_nodes)]
-#     G = nx.Graph()
-#
-#     # Add all nodes to the graph
-#     G.add_nodes_from(nodes)
-#
-#     # Ensure the graph is connected
-#     for i in range(1, len(nodes)):
-#         G.add_edge(nodes[i - 1], nodes[i], weight=random.randint(1, 10))
-#
-#     # Add random additional edges
-#     for _ in range(num_nodes):
-#         node1, node2 = random.sample(nodes, 2)
-#         if node1 != node2 and not G.has_edge(node1, node2):
-#             G.add_edge(node1, node2, weight=random.randint(1, 10))
-#
-#     # Position nodes for visualization
-#     pos = nx.spring_layout(G, k=0.5, iterations=50)
-#
-#     return G, pos
+# Run the Scene
+if path:
+    print(f"BFS Path from {start_station} to {end_station}: {path}")
+    scene = LondonTubeGraphScene(graph, path)
+    scene.render()
+else:
+    print(f"No path found between {start_station} and {end_station}")
